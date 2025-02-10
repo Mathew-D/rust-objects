@@ -1,3 +1,16 @@
+/*
+Made by: Mathew Dusome
+Feb 6 2025
+To import you need:
+
+mod objects {
+    pub mod grid;
+}
+use objects::grid::draw_grid;
+
+Then to use you would go: 
+    draw_grid(50.0, BROWN).await;
+*/
 use macroquad::prelude::*;
 pub async fn draw_grid(grid_size: f32, color: Color) {
     let screen_width = screen_width();
