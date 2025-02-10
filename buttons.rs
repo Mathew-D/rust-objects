@@ -1,3 +1,28 @@
+/*
+Made by: Mathew Dusome
+Feb 6 2025
+To import you need:
+Adds a button object 
+mod objects {
+    pub mod buttons;
+}
+use objects::buttons::*;
+
+Then to use you would go: 
+    let text_button = TextButton::new(
+        100.0,
+        200.0,
+        200.0,
+        60.0,
+        "Click Me".to_string(),
+        BLUE,
+        GREEN,
+    );
+Then:
+if text_button.click() {
+
+}
+*/
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 
@@ -16,7 +41,7 @@ impl ImageButton {
         Self { x, y, width, height, texture, hover_texture }
     }
 
-    pub fn draw(&self) -> bool {
+    pub fn click(&self) -> bool {
         // Get mouse position
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_pos = Vec2::new(mouse_x, mouse_y);
@@ -67,7 +92,7 @@ impl TextButton {
         Self { x, y, width, height, text, normal_color, hover_color }
     }
 
-    pub fn draw(&self) -> bool {
+    pub fn click(&self) -> bool {
         // Get mouse position
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_pos = Vec2::new(mouse_x, mouse_y);
