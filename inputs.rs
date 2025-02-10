@@ -1,3 +1,27 @@
+/*
+Made by: Mathew Dusome
+Feb 6 2025
+To import you need:
+Adds a text input object 
+mod objects {
+    pub mod inputs;
+}
+use objects::inputs::TextBox;
+
+Then to use you would go: 
+let text_button = TextButton::new(
+        100.0,
+        200.0,
+        200.0,
+        60.0,
+        "Click Me".to_string(),
+        BLUE,
+        GREEN,
+    );
+    
+    textbox.update();
+    textbox.draw();
+*/
 use macroquad::prelude::*;
 
 pub struct TextBox {
