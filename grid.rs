@@ -1,6 +1,7 @@
 /*
 Made by: Mathew Dusome
 Feb 6 2025
+Add a grid object for placement
 To import you need:
 
 mod objects {
