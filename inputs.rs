@@ -9,15 +9,7 @@ mod objects {
 use objects::text_input::TextBox;
 
 Then to use you would go: 
-let text_button = TextButton::new(
-        100.0,
-        200.0,
-        200.0,
-        60.0,
-        "Click Me".to_string(),
-        BLUE,
-        GREEN,
-    );
+let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0);
     
     textbox.update();
     textbox.draw();
