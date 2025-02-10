@@ -24,7 +24,6 @@ if text_button.click() {
 }
 */
 use macroquad::prelude::*;
-use macroquad::texture::Texture2D;
 
 // Custom struct for TextButton
 pub struct TextButton {
