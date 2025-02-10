@@ -4,9 +4,9 @@ Feb 6 2025
 To import you need:
 Adds a text input object 
 mod objects {
-    pub mod inputs;
+    pub mod text_input;
 }
-use objects::inputs::TextBox;
+use objects::text_input::TextBox;
 
 Then to use you would go: 
 let text_button = TextButton::new(
