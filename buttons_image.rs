@@ -4,7 +4,7 @@ Feb 6 2025
 To import you need:
 Adds a button object 
 mod objects {
-    pub mod buttons;
+    pub mod img_buttons;
 }
 use objects::img_buttons::ImageButton;
 
@@ -14,17 +14,18 @@ Then to use you would go:
         200.0,
         200.0,
         60.0,
-        img
-        hover_img,
-    );
+        "assets/button.png",
+        "assets/button_hover.png",
+    ).await;
+
 Then:
 if img_button.click() {
 
 }
 */
+
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
-
 // Custom struct for ImageButton
 pub struct ImageButton {
     x: f32,
@@ -36,7 +37,13 @@ pub struct ImageButton {
 }
 
 impl ImageButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, texture: Texture2D, hover_texture: Texture2D) -> Self {
+    // New function loads textures asynchronously
+    pub async fn new(x: f32, y: f32, width: f32, height: f32, texture_path: &str, hover_texture_path: &str) -> Self {
+        let texture = load_texture(texture_path).await.unwrap();
+        let hover_texture = load_texture(hover_texture_path).await.unwrap();
+        texture.set_filter(FilterMode::Linear);
+        hover_texture.set_filter(FilterMode::Linear);
+
         Self { x, y, width, height, texture, hover_texture }
     }
 
@@ -63,3 +70,4 @@ impl ImageButton {
         is_hovered && is_mouse_button_pressed(MouseButton::Left)
     }
 }
+
