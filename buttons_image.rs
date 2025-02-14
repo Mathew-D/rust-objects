@@ -6,7 +6,7 @@ Adds a button object
 mod objects {
     pub mod buttons;
 }
-use objects::buttons::ImageButton;
+use objects::img_buttons::ImageButton;
 
 Then to use you would go: 
     let text_button = TextButton::new(
@@ -14,9 +14,8 @@ Then to use you would go:
         200.0,
         200.0,
         60.0,
-        "Click Me".to_string(),
-        BLUE,
-        GREEN,
+        img
+        hover_img,
     );
 Then:
 if text_button.click() {
