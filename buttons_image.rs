@@ -59,17 +59,6 @@ impl ImageButton {
         // Draw the image button
         draw_texture(texture_to_draw, self.x, self.y, WHITE);
 
-        // Optional: Add text over the image
-        let text = "Click Me";
-        let text_width = measure_text(text, None, 30, 1.0).width;
-        draw_text(
-            text,
-            self.x + (self.width / 2.0) - (text_width / 2.0),
-            self.y + (self.height / 2.0),
-            30.0,
-            WHITE,
-        );
-
         // After drawing, check if the button was clicked
         is_hovered && is_mouse_button_pressed(MouseButton::Left)
     }
