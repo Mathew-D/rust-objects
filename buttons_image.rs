@@ -9,7 +9,7 @@ mod objects {
 use objects::img_buttons::ImageButton;
 
 Then to use you would go: 
-    let text_button = TextButton::new(
+    let img_button = ImageButton::new(
         100.0,
         200.0,
         200.0,
@@ -18,7 +18,7 @@ Then to use you would go:
         hover_img,
     );
 Then:
-if text_button.click() {
+if img_button.click() {
 
 }
 */
