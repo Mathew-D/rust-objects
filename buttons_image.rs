@@ -64,10 +64,11 @@ impl ImageButton {
         };
 
         // Draw the image button
-         draw_texture_ex(
+          draw_texture_ex(
             texture,
             x, // x position
             y, // y position
+            WHITE, // Tint color (use WHITE to keep original colors)
             DrawTextureParams {
                 dest_size: Some(vec2(width, height)), // Scale to fit
                 ..Default::default()
