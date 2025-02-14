@@ -64,7 +64,12 @@ impl ImageButton {
         };
 
         // Draw the image button
-        draw_texture(texture_to_draw, self.x, self.y, WHITE);
+         draw_texture(texture_to_draw, self.x, self.y, WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(width, height)), // Scale to fit
+                ..Default::default()
+            },
+        );
 
         // After drawing, check if the button was clicked
         is_hovered && is_mouse_button_pressed(MouseButton::Left)
