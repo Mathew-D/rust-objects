@@ -6,7 +6,7 @@ Adds a button object
 mod objects {
     pub mod buttons_text;
 }
-use objects::buttons_text::TextButton;
+use objects::txt_buttons::TextButton;
 
 Then to use you would go: 
     let text_button = TextButton::new(
