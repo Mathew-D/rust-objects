@@ -4,7 +4,7 @@ Feb 6 2025
 To import you need:
 Adds a button object 
 mod objects {
-    pub mod buttons_text;
+    pub mod txt_buttons;
 }
 use objects::txt_buttons::TextButton;
 
