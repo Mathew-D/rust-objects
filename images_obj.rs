@@ -6,16 +6,15 @@ Adds a image object
 mod objects {
     pub mod images_obj;
 }
-use objects::img_buttons::ImageButton;
+use objects::img_buttons::ImageObject;
 
 Then to use you would go: 
     let img = image_obj::new(
+        "assets/button.png",
         100.0,
         200.0,
         200.0,
         60.0,
-        "assets/button.png",
-        "assets/button_hover.png",
     ).await;
 
 
