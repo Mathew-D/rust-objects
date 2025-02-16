@@ -6,7 +6,7 @@ Adds a image object
 mod objects {
     pub mod images_obj;
 }
-use objects::img_buttons::ImageObject;
+use objects::image_obj::ImageObject;
 
 Then to use you would go: 
     let img = image_obj::new(
