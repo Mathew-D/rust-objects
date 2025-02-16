@@ -16,7 +16,7 @@ Then to use you would go:
         200.0,
         60.0,
     ).await;
-
+*/
 
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
