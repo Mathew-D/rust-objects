@@ -70,9 +70,9 @@ impl ImageObject {
         vec2(self.texture.width(), self.texture.height())
     }
 
-    pub fn set_position(&mut self, pos: (f32, f32)) {
-        self.x = pos.0;
-        self.y = pos.1;
+    pub fn set_position(&mut self, pos: Vec2) {
+        self.x = pos[0];
+        self.y = pos[1];
     }
 
     // Get the transparency mask (bitmask)
