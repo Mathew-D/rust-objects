@@ -10,7 +10,7 @@ use objects::images_obj::ImageObject;
 
 Then to use you would go: 
     let img = ImageObject::new(
-        "assets/button.png",
+        "assets/image_name.png",
         100.0,
         200.0,
         200.0,
