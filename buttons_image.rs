@@ -34,7 +34,7 @@ pub struct ImageButton {
     height: f32,
     texture: Texture2D,
     hover_texture: Texture2D,
-    transparency_mask: Vec<bool>, // Stores transparency data
+    transparency_mask: Vec<u8>, // Stores transparency data
     tex_width: usize,
     tex_height: usize,
 }
@@ -88,8 +88,11 @@ impl ImageButton {
         let tex_y = ((mouse_y - self.y) * self.tex_height as f32 / self.height) as usize;
 
         if tex_x < self.tex_width && tex_y < self.tex_height {
-            let pixel_idx = tex_y * self.tex_width + tex_x;
-            return !self.transparency_mask[pixel_idx];
+            let byte_idx = (tex_y * self.tex_width + tex_x) / 8; // Find byte index
+            let bit_idx = (tex_y * self.tex_width + tex_x) % 8; // Find bit index within byte
+
+            // Check the bit value (is it 0 or 1?)
+            return (self.transparency_mask[byte_idx] >> (7 - bit_idx)) & 1 == 1; // Non-transparent
         }
 
         false
@@ -97,17 +100,23 @@ impl ImageButton {
 }
 
 // ✅ Works for Web and Native by loading the image as raw bytes
-async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<bool> {
+async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u8> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
 
-    let mut mask = vec![false; width * height];
+    let mut mask = vec![0; (width * height + 7) / 8]; // One byte per 8 pixels
 
     for y in 0..height {
         for x in 0..width {
             let idx = (y * width + x) * 4; // Each pixel is 4 bytes (RGBA)
             let alpha = pixels[idx + 3]; // Get alpha channel
-            mask[y * width + x] = alpha == 0; // True if transparent
+            let byte_idx = (y * width + x) / 8;
+            let bit_idx = (y * width + x) % 8;
+
+            // Set bit to 1 if pixel is non-transparent
+            if alpha > 0 {
+                mask[byte_idx] |= 1 << (7 - bit_idx); // Set the bit to 1 (non-transparent)
+            }
         }
     }
 
