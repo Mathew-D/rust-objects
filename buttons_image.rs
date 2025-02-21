@@ -4,9 +4,9 @@ Feb 6 2025
 To import you need:
 Adds a button object 
 mod objects {
-    pub mod img_buttons;
+    pub mod img_button;
 }
-use objects::img_buttons::ImageButton;
+use objects::img_button::ImageButton;
 
 Then to use you would go: 
     let img_button = ImageButton::new(
