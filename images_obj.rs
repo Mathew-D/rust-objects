@@ -6,7 +6,7 @@ Adds a image object
 mod objects {
     pub mod images_obj;
 }
-use objects::image_obj::ImageObject;
+use objects::images_obj::ImageObject;
 
 Then to use you would go: 
     let img = image_obj::new(
@@ -46,7 +46,7 @@ impl ImageObject {
     // Method to draw the image with current settings
     pub fn draw(&self) {
         draw_texture_ex(
-            self.texture,
+            &self.texture,
             self.x,
             self.y,
             WHITE,
