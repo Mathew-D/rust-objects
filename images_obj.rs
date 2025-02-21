@@ -10,7 +10,7 @@ use objects::images_obj::ImageObject;
 
 Then to use you would go: 
     let img = ImageObject::new(
-        "assets/image_name.png",
+        "assets/button.png",
         100.0,
         200.0,
         200.0,
@@ -68,6 +68,11 @@ impl ImageObject {
 
     pub fn texture_size(&self) -> Vec2 {
         vec2(self.texture.width(), self.texture.height())
+    }
+
+    pub fn set_position(&mut self, pos: (f32, f32)) {
+        self.x = pos.0;
+        self.y = pos.1;
     }
 
     // Get the transparency mask (bitmask)
