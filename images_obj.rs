@@ -9,7 +9,7 @@ mod objects {
 use objects::images_obj::ImageObject;
 
 Then to use you would go: 
-    let img = image_obj::new(
+    let img = objects::images_obj::ImageObject::new(
         "assets/button.png",
         100.0,
         200.0,
