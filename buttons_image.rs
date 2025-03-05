@@ -28,10 +28,10 @@ use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 
 pub struct ImageButton {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
     texture: Texture2D,
     hover_texture: Texture2D,
     transparency_mask: Vec<u8>, // Stores transparency data
@@ -41,21 +41,15 @@ pub struct ImageButton {
 
 impl ImageButton {
     pub async fn new(x: f32, y: f32, width: f32, height: f32, texture_path: &str, hover_texture_path: &str) -> Self {
-        let texture = load_texture(texture_path).await.unwrap();
+       
+        let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;
+        
         let hover_texture = load_texture(hover_texture_path).await.unwrap();
-
-        texture.set_filter(FilterMode::Linear);
+        
         hover_texture.set_filter(FilterMode::Linear);
-
-        let tex_width = texture.width() as usize;
-        let tex_height = texture.height() as usize;
-
-        // Create transparency mask manually
-        let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await;
-
         Self { x, y, width, height, texture, hover_texture, transparency_mask, tex_width, tex_height }
     }
-
+   
     pub fn click(&self) -> bool {
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_pos = Vec2::new(mouse_x, mouse_y);
@@ -121,4 +115,12 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u
     }
 
     mask
+}
+pub async fn set_texture(texture_path: &str) -> (Texture2D, Vec<u8>, usize, usize) {
+    let texture = load_texture(texture_path).await.unwrap();
+    texture.set_filter(FilterMode::Linear);
+    let tex_width = texture.width() as usize;
+    let tex_height = texture.height() as usize;
+    let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await;
+    return (texture, transparency_mask, tex_width, tex_height);
 }
