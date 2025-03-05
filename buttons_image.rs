@@ -32,6 +32,7 @@ pub struct ImageButton {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+    pub enabled: bool,
     texture: Texture2D,
     hover_texture: Texture2D,
     transparency_mask: Vec<u8>, // Stores transparency data
@@ -45,9 +46,9 @@ impl ImageButton {
         let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;
         
         let hover_texture = load_texture(hover_texture_path).await.unwrap();
-        
+        let enabled = true;
         hover_texture.set_filter(FilterMode::Linear);
-        Self { x, y, width, height, texture, hover_texture, transparency_mask, tex_width, tex_height }
+        Self { x, y, width, height, enabled,texture, hover_texture, transparency_mask, tex_width, tex_height }
     }
    
     pub fn click(&self) -> bool {
@@ -57,24 +58,32 @@ impl ImageButton {
         let rect = Rect::new(self.x, self.y, self.width, self.height);
         let is_hovered = rect.contains(mouse_pos);
 
-        let texture_to_draw = if is_hovered && self.is_hovered(mouse_x, mouse_y) {
+        let texture_to_draw = if self.enabled && is_hovered && self.is_hovered(mouse_x, mouse_y) {
             &self.hover_texture
         } else {
             &self.texture
+        };
+        //let gray_overlay = Color::new(0.6, 0.6, 0.6, 1.0); // A grayish blend
+        
+        //draw_texture_ex(texture, x, y, gray_overlay, DrawTextureParams::default());
+        let color = if !self.enabled {
+            Color::new(0.6, 0.6, 0.6, 1.0) // Grayscale effect (gray overlay)
+        } else {
+            WHITE // Normal color (no effect)
         };
 
         draw_texture_ex(
             texture_to_draw,
             self.x,
             self.y,
-            WHITE,
+            color,
             DrawTextureParams {
                 dest_size: Some(vec2(self.width, self.height)),
                 ..Default::default()
             },
         );
 
-        is_hovered && is_mouse_button_pressed(MouseButton::Left)
+        is_hovered && self.enabled && is_mouse_button_pressed(MouseButton::Left)
     }
 
     fn is_hovered(&self, mouse_x: f32, mouse_y: f32) -> bool {
