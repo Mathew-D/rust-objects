@@ -27,13 +27,13 @@ use macroquad::prelude::*;
 
 // Custom struct for TextButton
 pub struct TextButton {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    text: String,
-    normal_color: Color,
-    hover_color: Color,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub text: String,
+    pub normal_color: Color,
+    pub hover_color: Color,
 }
 
 impl TextButton {
