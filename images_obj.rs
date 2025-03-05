@@ -32,14 +32,7 @@ pub struct ImageObject {
 impl ImageObject {
     // Constructor for ImageObject with asset path and x, y location
     pub async fn new(asset_path: &str, width: f32, height: f32, x: f32, y: f32) -> Self {
-        let texture = load_texture(asset_path).await.unwrap(); // Load the texture from the asset path
-        texture.set_filter(FilterMode::Nearest); // Set the filter to Nearest directly here
-        let tex_width = texture.width() as usize;
-        let tex_height = texture.height() as usize;
-
-        // Generate the mask once and store it in the object
-        let transparency_mask = generate_mask(asset_path, tex_width, tex_height).await;
-
+        let (texture, transparency_mask) = set_texture(asset_path).await;
         Self { x, y, width, height, texture, transparency_mask }
     }
 
@@ -58,24 +51,26 @@ impl ImageObject {
     }
 
     // Accessors for image properties
+    #[allow(unused)]
     pub fn pos(&self) -> Vec2 {
         vec2(self.x, self.y)
     }
-
+    #[allow(unused)]
     pub fn size(&self) -> Vec2 {
         vec2(self.width, self.height)
     }
-
+    #[allow(unused)]
     pub fn texture_size(&self) -> Vec2 {
         vec2(self.texture.width(), self.texture.height())
     }
-
+    #[allow(unused)]
     pub fn set_position(&mut self, pos: Vec2) {
         self.x = pos[0];
         self.y = pos[1];
     }
 
     // Get the transparency mask (bitmask)
+    #[allow(unused)]
     pub fn get_mask(&self) -> Vec<u8> {
         return self.transparency_mask.clone();
     }
@@ -106,4 +101,12 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u
     }
 
     mask
+}
+pub async fn set_texture(texture_path: &str) -> (Texture2D, Vec<u8>) {
+    let texture = load_texture(texture_path).await.unwrap();
+    texture.set_filter(FilterMode::Linear);
+    let tex_width = texture.width() as usize;
+    let tex_height = texture.height() as usize;
+    let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await;
+    return (texture, transparency_mask);
 }
