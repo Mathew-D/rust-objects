@@ -78,7 +78,7 @@ impl TextButton {
         );
 
         // After drawing, check if the button was clicked
-        is_hovered && is_mouse_button_pressed(MouseButton::Left)
+        is_hovered && self.enabled && is_mouse_button_pressed(MouseButton::Left)
     }
 }
 fn lerp_color(c1: Color, c2: Color, factor: f32) -> Color {
