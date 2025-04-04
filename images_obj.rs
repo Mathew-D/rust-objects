@@ -32,7 +32,7 @@ pub struct ImageObject {
 impl ImageObject {
     // Constructor for ImageObject with asset path and x, y location
     pub async fn new(asset_path: &str, width: f32, height: f32, x: f32, y: f32) -> Self {
-        let (texture, transparency_mask) = set_texture(asset_path).await;
+        let (texture, transparency_mask) = set_texture_main(asset_path).await;
         Self { x, y, width, height, texture, transparency_mask }
     }
 
@@ -74,6 +74,13 @@ impl ImageObject {
     pub fn get_mask(&self) -> Vec<u8> {
         return self.transparency_mask.clone();
     }
+    #[allow(unused)]
+    pub async fn set_texture(&mut self, texture_path: &str) {
+        let (texture, transparency_mask) = set_texture_main(texture_path).await;
+        self.texture = texture;
+        self.transparency_mask = transparency_mask;
+    }
+    
 }
 
 // ✅ Works for Web and Native by loading the image as raw bytes
@@ -102,7 +109,7 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u
 
     mask
 }
-pub async fn set_texture(texture_path: &str) -> (Texture2D, Vec<u8>) {
+pub async fn set_texture_main(texture_path: &str) -> (Texture2D, Vec<u8>) {
     let texture = load_texture(texture_path).await.unwrap();
     texture.set_filter(FilterMode::Linear);
     let tex_width = texture.width() as usize;
