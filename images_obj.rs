@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-Feb 6 2025
+April 26 2025
 To import you need:
 Adds a image object 
 In the mod objects section add:
@@ -11,12 +11,26 @@ use objects::images_obj::ImageObject;
 
 Then to use this you would put the following above the loop: 
     let img = ImageObject::new(
-        "assets/button.png",
+        "assets/image_name.png",
         100.0,
         200.0,
         200.0,
         60.0,
+        true,  // Enable stretching
+        1.0,   // Normal zoom (100%)
     ).await;
+
+    // Or with custom stretch and zoom options:
+    let img_custom = ImageObject::new(
+        "assets/image_name.png",
+        100.0,
+        200.0,
+        200.0,
+        60.0,
+        false,  // Disable stretching
+        1.5,    // Set zoom to 150%
+    ).await;
+
 Then in side the loop you would use:
 img.draw();
 */
@@ -30,24 +44,55 @@ pub struct ImageObject {
     width: f32,
     height: f32,
     transparency_mask: Vec<u8>, // Now storing raw transparency data (bitmask)
+    stretch_enabled: bool, // Flag to control image stretching
+    zoom_level: f32, // Zoom factor to scale the image
 }
 
 impl ImageObject {
     // Constructor for ImageObject with asset path and x, y location
-    pub async fn new(asset_path: &str, width: f32, height: f32, x: f32, y: f32) -> Self {
+    pub async fn new(
+        asset_path: &str, 
+        width: f32, 
+        height: f32, 
+        x: f32, 
+        y: f32,
+        stretch_enabled: bool,
+        zoom_level: f32
+    ) -> Self {
         let (texture, transparency_mask) = set_texture_main(asset_path).await;
-        Self { x, y, width, height, texture, transparency_mask }
+        Self { 
+            x, 
+            y, 
+            width, 
+            height, 
+            texture, 
+            transparency_mask,
+            stretch_enabled,
+            zoom_level: zoom_level.max(0.1), // Ensure minimum zoom
+        }
     }
 
     // Method to draw the image with current settings
     pub fn draw(&self) {
+        // Get the size to use for drawing
+        let (draw_width, draw_height) = if self.stretch_enabled {
+            (self.width, self.height)
+        } else {
+            // Use original texture size when stretch is disabled
+            (self.texture.width(), self.texture.height())
+        };
+        
+        // Apply zoom factor
+        let final_width = draw_width * self.zoom_level;
+        let final_height = draw_height * self.zoom_level;
+        
         draw_texture_ex(
             &self.texture,
             self.x,
             self.y,
             WHITE,
             DrawTextureParams {
-                dest_size: Some(vec2(self.width, self.height)),
+                dest_size: Some(vec2(final_width, final_height)),
                 ..Default::default()
             },
         );
@@ -84,6 +129,63 @@ impl ImageObject {
         self.transparency_mask = transparency_mask;
     }
     
+    // Methods to toggle stretching
+    #[allow(unused)]
+    pub fn enable_stretch(&mut self) {
+        self.stretch_enabled = true;
+    }
+    
+    #[allow(unused)]
+    pub fn disable_stretch(&mut self) {
+        self.stretch_enabled = false;
+    }
+    
+    #[allow(unused)]
+    pub fn toggle_stretch(&mut self) {
+        self.stretch_enabled = !self.stretch_enabled;
+    }
+    
+    #[allow(unused)]
+    pub fn is_stretch_enabled(&self) -> bool {
+        self.stretch_enabled
+    }
+    
+    #[allow(unused)]
+    pub fn set_stretch(&mut self, enabled: bool) {
+        self.stretch_enabled = enabled;
+    }
+    
+    // Zoom methods
+    #[allow(unused)]
+    pub fn set_zoom(&mut self, zoom_level: f32) {
+        self.zoom_level = zoom_level.max(0.1); // Prevent zoom from going too small
+    }
+    
+    #[allow(unused)]
+    pub fn zoom_in(&mut self, amount: f32) {
+        self.zoom_level += amount;
+        if self.zoom_level < 0.1 {
+            self.zoom_level = 0.1; // Minimum zoom level
+        }
+    }
+    
+    #[allow(unused)]
+    pub fn zoom_out(&mut self, amount: f32) {
+        self.zoom_level -= amount;
+        if self.zoom_level < 0.1 {
+            self.zoom_level = 0.1; // Minimum zoom level
+        }
+    }
+    
+    #[allow(unused)]
+    pub fn get_zoom_level(&self) -> f32 {
+        self.zoom_level
+    }
+    
+    #[allow(unused)]
+    pub fn reset_zoom(&mut self) {
+        self.zoom_level = 1.0;
+    }
 }
 
 // ✅ Works for Web and Native by loading the image as raw bytes
@@ -120,3 +222,4 @@ pub async fn set_texture_main(texture_path: &str) -> (Texture2D, Vec<u8>) {
     let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await;
     return (texture, transparency_mask);
 }
+
