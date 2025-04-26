@@ -1,24 +1,23 @@
 /*
 Made by: Mathew Dusome
 April 26 2025
-To import you need:
 Adds a text input object
-At the top of your main.rs file you need to add:
-    mod objects {
+
+In the mod objects section add:
         pub mod text_input;
-    }
+
 
 Add with the other use statements
     use objects::text_input::TextBox;
 
-Then to use you would go:
+Then to use this you would put the following above the loop: 
     let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0,50.0);
 Where the numbers are x, y, width, height, font size
 You can also set the colors of the text box by using:
     .with_colors(WHITE, BLUE, DARKGRAY, RED);
 Where the colors are text color, border color, background color, and cursor color respectively.
 
-Then in the loop you would do:
+Then in the loop you would use:
 
     textbox.update();
     textbox.draw();
