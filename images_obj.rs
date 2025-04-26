@@ -3,12 +3,13 @@ Made by: Mathew Dusome
 Feb 6 2025
 To import you need:
 Adds a image object 
-mod objects {
+In the mod objects section add:
     pub mod images_obj;
-}
+    
+Then add the following with the use commands:
 use objects::images_obj::ImageObject;
 
-Then to use you would go: 
+Then to use this you would put the following above the loop: 
     let img = ImageObject::new(
         "assets/button.png",
         100.0,
@@ -16,6 +17,8 @@ Then to use you would go:
         200.0,
         60.0,
     ).await;
+Then in side the loop you would use:
+img.draw();
 */
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
