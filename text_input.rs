@@ -161,11 +161,14 @@ impl TextBox {
                 }
             }
     
-            // Draw the cursor with customizable color
+            // Add a small spacing between the text and cursor (2.0 pixels)
+            let cursor_spacing = 2.0;
+            
+            // Draw the cursor with customizable color and added spacing
             draw_line(
-                text_x + cursor_offset,
+                text_x + cursor_offset + cursor_spacing,
                 text_y - self.font_size,
-                text_x + cursor_offset,
+                text_x + cursor_offset + cursor_spacing,
                 text_y + 5.0,
                 2.0,
                 self.cursor_color,
