@@ -2,23 +2,22 @@
 Made by: Mathew Dusome
 April 26 2025
 To import you need:
-Adds a text input object
-At the top of your main.rs file you need to add:
-    mod objects {
+Adds a label object
+In the mod objects section add:
         pub mod label;
-    }
+    
 
 Add with the other use statements
     use objects::label::Label;
 
-Then to use you would go:
+Then to use this you would put the following above the loop: 
     let lbl_out = Label::new("Hello\nWorld", 50.0, 100.0, 30);
 Where the numbers are x, y, font size
 You can also set the colors of the text box by using:
      .with_colors(WHITE, Some(DARKGRAY));
 Where the colors are text color and background colorespectively.
 
-Then in the loop you would do:
+Then in the loop you would use:
     lbl_out.draw();
 */
 
