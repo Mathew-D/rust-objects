@@ -3,13 +3,14 @@ Made by: Mathew Dusome
 Feb 6 2025
 To import you need:
 Adds a button object
-mod objects {
+In the mod objects section add:
     pub mod txt_buttons;
-}
+
+Then with the other use commands add:
 use objects::txt_buttons::TextButton;
 
-Then to use you would go:
-    // With default colors:
+Then above the loop section to use you would go:
+   
     let text_button = TextButton::new(
         100.0,
         200.0,
@@ -20,7 +21,7 @@ Then to use you would go:
         GREEN,
     );
 
-Then:
+Then in the loop you would use:
 if text_button.click() {
 
 }
