@@ -4,16 +4,17 @@ Feb 6 2025
 Add a grid object for placement
 To import you need:
 
-mod objects {
+In the mod objects section add:
     pub mod grid;
-}
+    
+Then add the following with the use commands:
 use objects::grid::draw_grid;
 
-Then to use you would go: 
-    draw_grid(50.0, BROWN).await;
+Then in side the loop I would use:
+    draw_grid(50.0, BROWN);
 */
 use macroquad::prelude::*;
-pub async fn draw_grid(grid_size: f32, color: Color) {
+pub fn draw_grid(grid_size: f32, color: Color) {
     let screen_width = screen_width();
     let screen_height = screen_height();
     
