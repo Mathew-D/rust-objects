@@ -1,17 +1,16 @@
 /*
 Made by: Mathew Dusome
 April 26 2025
-To import you need:
-Adds a list view widget similar to QListWidget in PySide6
-At the top of your main.rs file you need to add:
-    mod objects {
+
+Adds a list view widget
+In the mod objects section add:
         pub mod listview;
-    }
+
 
 Add with the other use statements
     use objects::listview::ListView;
 
-Then to use you would go:
+Then to use this you would put the following above the loop: 
     let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
     let list_view = ListView::new(list_items, 50.0, 100.0, 20);
 Where the numbers are x, y, font size
