@@ -12,11 +12,13 @@ native = ["rayon"]    # The "native" feature enables Rayon
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = "1.7"  # Rayon is only included for native builds
 
-Then to use:
-mod objects {
+In the mod objects section add:
     pub mod collision;
-}
+Then in with the other use command add:
+
 use objects::collision::check_collision;
+ 
+Then in the loop you would use the follow to check if two images hit: 
  let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pixels to skip
     if collision {
         println!("Collision detected!");
