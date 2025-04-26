@@ -3,12 +3,14 @@ Made by: Mathew Dusome
 Feb 6 2025
 To import you need:
 Adds a button object 
-mod objects {
+In the mod objects section add:
     pub mod img_button;
-}
+
+Then add the following with the use commands:
+
 use objects::img_button::ImageButton;
 
-Then to use you would go: 
+Then to use you would go above the loop: 
     let img_button = ImageButton::new(
         100.0,
         200.0,
@@ -18,7 +20,7 @@ Then to use you would go:
         "assets/button_hover.png",
     ).await;
 
-Then:
+Then in side the loop I would use:
 if img_button.click() {
 
 }
