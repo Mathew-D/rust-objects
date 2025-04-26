@@ -10,7 +10,7 @@ Then add the following with the use commands:
 
 use objects::img_button::ImageButton;
 
-Then to use you would go above the loop: 
+Then to use this you would put the following above the loop: 
     let img_button = ImageButton::new(
         100.0,
         200.0,
@@ -20,7 +20,7 @@ Then to use you would go above the loop:
         "assets/button_hover.png",
     ).await;
 
-Then in side the loop I would use:
+Then in side the loop you would use:
 if img_button.click() {
 
 }
