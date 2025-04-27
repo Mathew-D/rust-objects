@@ -1,4 +1,4 @@
-# Rust Help Guide
+# Rust Help Guide - Basic Concepts
 *Created by: Mathew Dusome*  
 *Date: April 27, 2025*
 
@@ -10,6 +10,9 @@ This guide contains examples of common Rust operations in Rust using Macroquad:
 5. Generating and using random numbers
 6. Working with vectors
 7. Using loops
+8. Playing sounds
+
+*For advanced topics, please refer to RUST_ADVANCED.md*
 
 ## 1. Creating Variables
 
@@ -376,4 +379,135 @@ loop {
         break;
     }
 }
+```
+
+## 8. Playing Sounds
+
+### Loading and Playing Sound Effects
+
+```rust
+use macroquad::audio::{load_sound, play_sound, PlaySoundParams};
+
+// Load a sound file (in async function)
+let sound_effect = load_sound("sounds/explosion.ogg").await.unwrap();
+
+// Play sound with default parameters
+play_sound(sound_effect, PlaySoundParams::default());
+
+// Play sound with custom volume
+play_sound(
+    sound_effect,
+    PlaySoundParams {
+        volume: 0.5,      // 50% volume (0.0 to 1.0)
+        looped: false,    // Don't loop the sound
+        ..Default::default()
+    },
+);
+```
+
+### Playing Looped Background Music
+
+```rust
+use macroquad::audio::{load_sound, play_sound, PlaySoundParams};
+
+// Load a music file (in async function)
+let background_music = load_sound("sounds/background_music.ogg").await.unwrap();
+
+// Play music in a loop with reduced volume
+play_sound(
+    background_music,
+    PlaySoundParams {
+        volume: 0.3,      // 30% volume
+        looped: true,     // Loop the music continuously
+        ..Default::default()
+    },
+);
+```
+
+### Stopping Sounds
+
+```rust
+use macroquad::audio::{load_sound, play_sound, stop_sound, PlaySoundParams};
+
+// Load a sound (in async function)
+let alarm_sound = load_sound("sounds/alarm.ogg").await.unwrap();
+
+// Play the sound and get a handle to it
+let sound_handle = play_sound(
+    alarm_sound,
+    PlaySoundParams {
+        looped: true,     // Loop until stopped
+        ..Default::default()
+    },
+);
+
+// Later, when you want to stop the sound
+stop_sound(sound_handle);
+```
+
+### Managing Multiple Sounds
+
+```rust
+use macroquad::audio::{load_sound, play_sound, PlaySoundParams};
+
+// Load multiple sounds (in async function)
+let jump_sound = load_sound("sounds/jump.ogg").await.unwrap();
+let coin_sound = load_sound("sounds/coin.ogg").await.unwrap();
+let win_sound = load_sound("sounds/win.ogg").await.unwrap();
+
+// Play different sounds based on game events
+if player_jumped {
+    play_sound(jump_sound, PlaySoundParams::default());
+}
+
+if collected_coin {
+    play_sound(coin_sound, PlaySoundParams::default());
+}
+
+if level_completed {
+    play_sound(win_sound, PlaySoundParams::default());
+}
+```
+
+### Tips for Sound Implementation
+
+1. **Supported Formats**: Macroquad supports common audio formats like .ogg, .wav, and .mp3, but .ogg is recommended for best cross-platform compatibility.
+
+2. **File Size**: Keep sound files optimized and compressed, especially for web builds where download size matters.
+
+3. **Error Handling**: Always handle potential errors when loading sounds:
+```rust
+match load_sound("sounds/effect.ogg").await {
+    Ok(sound) => {
+        // Store the sound for later use
+        my_sound = sound;
+    },
+    Err(e) => {
+        println!("Error loading sound: {:?}", e);
+        // Provide fallback behavior
+    }
+}
+```
+
+4. **Sound Parameters**: Adjust parameters for different use cases:
+```rust
+// Sound effect: loud but not looped
+play_sound(
+    effect_sound,
+    PlaySoundParams {
+        volume: 0.8,
+        looped: false,
+        ..Default::default()
+    },
+);
+
+// Background music: quieter but looped
+play_sound(
+    music_sound,
+    PlaySoundParams {
+        volume: 0.3,
+        looped: true,
+        ..Default::default()
+    },
+);
 ```
