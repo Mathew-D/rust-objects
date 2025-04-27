@@ -15,6 +15,19 @@ This is used with my VS Code extension:
 - **TextBox** (`text_input.rs`): Interactive text input field with cursor control, handling keyboard input and text editing.
 - **ListView** (`listview.rs`): A scrollable list of items with selection, customizable appearances, and mouse wheel support.
 - **Slider** (`slider.rs`): Adjustable slider control for numeric input with both horizontal and vertical orientations. Ideal for volume controls, settings adjustment, and other value inputs.
+- **MessageBox** (`messagebox.rs`): Dialog component for displaying messages and getting user feedback with customizable buttons. Features include:
+  - Modal overlay to block background interaction
+  - Multiple button options with keyboard navigation
+  - Customizable colors and appearance
+  - Draggable dialog window
+  - Automatic text wrapping for long messages
+  - Close button and Escape key support
+- **ProgressBar** (`progressbar.rs`): Visual indicator for displaying progress or loading status. Features include:
+  - Customizable appearance with configurable colors and borders
+  - Support for horizontal and vertical orientations
+  - Percentage display option
+  - Min/max value range customization
+  - Smooth animations for value changes
 
 ### Graphics and Layout
 - **ImageObject** (`images_obj.rs`): Basic image display with support for scaling and positioning. Creates transparency masks for collision detection.
@@ -63,4 +76,3 @@ Some components require additional crates to enable full functionality:
   [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
   rayon = "1.7"  # Rayon is only included for native builds
   ```
-```
