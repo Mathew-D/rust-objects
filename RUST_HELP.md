@@ -31,11 +31,28 @@ let font = load_ttf_font("path/to/your_font.ttf").await.unwrap();
 
 ```rust
 // Method 1: Using Color::rgba() with values from 0-255
-let green = Color::rgba(0, 255, 0, 255);
+    Color::rgba(0, 255, 0, 255) //Green 
 
 // Method 2: Using hex values
 //Must add 0x in front of HEX code
-let blue = Color::from_hex(0xb58b18) 
+    Color::from_hex(0xb58b18) //A blue color
+```
+
+### Using Color Constants and Transparency
+
+```rust
+// Browse available color constants by typing color:: and viewing autocomplete options
+    color::RED;
+    color::DARKBLUE;
+    color::YELLOW;
+
+// Create transparent colors using Color::rgba() with alpha channel (0-255)
+// The last parameter controls transparency (0 = fully transparent, 255 = fully opaque)
+    Color::rgba(0, 0, 0, 128) // 50% transparent black
+    Color::rgba(0, 0, 0, 0) // Completely transparent
+    Color::rgba(255, 0, 0, 100) // Mostly transparent red
+
+Those color commands can be used anywhere a color is needed. For example when making a text button.
 ```
 
 ## 3. Creating Variables

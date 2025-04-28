@@ -19,9 +19,12 @@ Then above the loop section to use you would go:
         "Click Me",
         BLUE,
         GREEN,
-        WHITE,
         30
     );
+
+You can customize the text colors with:
+    text_button.with_text_color(WHITE);        // Sets the normal text color
+    text_button.with_hover_text_color(YELLOW); // Sets the text color when hovering
 
 You can also specify a custom font with:
     text_button.with_font(my_font.clone());
@@ -51,6 +54,9 @@ Then in the loop you would use:
 if text_button.click() {
 
 }
+
+Note: For buttons with transparent backgrounds (set normal_color with alpha=0), 
+only the text area is clickable, not the entire button area.
 */
 use macroquad::prelude::*;
 
@@ -66,6 +72,7 @@ pub struct TextButton {
     pub hover_color: Color,
     off_color: Color,
     pub text_color: Color,
+    pub hover_text_color: Color, // Added hover text color
     pub font_size: u16,
     pub font: Option<Font>, // Store the font directly since Font is Clone
     pub corner_radius: f32, // For rounded corners
@@ -80,10 +87,11 @@ pub struct TextButton {
 }
 
 impl TextButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, text_color: Color,font_size:u16) -> Self {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, font_size: u16) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);
         let text = text.into();
+        let text_color = WHITE; // Default text color
         
         // Pre-calculate and cache values
         let cached_text_width = measure_text(&text, None, font_size, 1.0).width;
@@ -104,6 +112,7 @@ impl TextButton {
             hover_color,
             off_color,
             text_color,
+            hover_text_color: text_color, // Default hover text color to regular text color
             font_size,
             font: None, // Default to None (use system font)
             corner_radius: 0.0, // Default to no rounded corners
@@ -146,6 +155,23 @@ impl TextButton {
         self.border = true;
         self.border_color = color;
         self.border_thickness = thickness;
+        self
+    }
+    
+    // Method to set hover text color
+    #[allow(unused)]
+    pub fn with_hover_text_color(&mut self, color: Color) -> &mut Self {
+        self.hover_text_color = color;
+        self
+    }
+
+    // Method to set text color
+    #[allow(unused)]
+    pub fn with_text_color(&mut self, color: Color) -> &mut Self {
+        self.text_color = color;
+        if self.hover_text_color == WHITE { // Only update if it wasn't explicitly set
+            self.hover_text_color = color;
+        }
         self
     }
     
@@ -224,8 +250,24 @@ impl TextButton {
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_pos = Vec2::new(mouse_x, mouse_y);
 
-        // Check if mouse is over the button using the cached rectangle
-        let is_hovered = self.cached_rect.contains(mouse_pos);
+        // Check if the background is transparent (alpha is 0)
+        let is_background_transparent = self.normal_color.a == 0.0;
+        
+        // Determine is_hovered based on background transparency
+        let is_hovered = if is_background_transparent {
+            // If transparent, only detect clicks on the text area
+            let text_height = self.font_size as f32; // Approximate text height
+            let text_rect = Rect::new(
+                self.cached_text_position.x,
+                self.cached_text_position.y - text_height,
+                self.cached_text_width,
+                text_height
+            );
+            text_rect.contains(mouse_pos)
+        } else {
+            // Otherwise use the full button area
+            self.cached_rect.contains(mouse_pos)
+        };
 
         // Draw the text button (change color on hover)
         let button_color = if self.enabled {
@@ -258,6 +300,17 @@ impl TextButton {
         }
 
         // Draw the text with the appropriate font using cached position
+        let current_text_color = if self.enabled {
+            if is_hovered {
+                self.hover_text_color
+            } else {
+                self.text_color
+            }
+        } else {
+            // Use a dimmed text color for disabled state
+            Color::new(self.text_color.r, self.text_color.g, self.text_color.b, 0.5)
+        };
+        
         match &self.font {
             Some(font) => {
                 draw_text_ex(
@@ -267,7 +320,7 @@ impl TextButton {
                     TextParams {
                         font: Some(font),
                         font_size: self.font_size,
-                        color: self.text_color,
+                        color: current_text_color,
                         ..Default::default()
                     },
                 );
@@ -279,7 +332,7 @@ impl TextButton {
                     self.cached_text_position.x,
                     self.cached_text_position.y,
                     self.font_size.into(),
-                    self.text_color,
+                    current_text_color,
                 );
             }
         }
