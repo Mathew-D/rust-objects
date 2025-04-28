@@ -31,7 +31,7 @@ let font = load_ttf_font("path/to/your_font.ttf").await.unwrap();
 
 ```rust
 // Method 1: Using Color::rgba() with values from 0-255
-    Color::rgba(0, 255, 0, 255) //Green 
+    Color::from_rgba(0, 255, 0, 255) //Green 
 
 // Method 2: Using hex values
 //Must add 0x in front of HEX code
@@ -41,16 +41,38 @@ let font = load_ttf_font("path/to/your_font.ttf").await.unwrap();
 ### Using Color Constants and Transparency
 
 ```rust
-// Browse available color constants by typing color:: and viewing autocomplete options
-    color::RED;
-    color::DARKBLUE;
-    color::YELLOW;
+// Macroquad provides many predefined color constants:
+BLACK;       // RGB(0, 0, 0)
+WHITE;       // RGB(255, 255, 255)
+RED;         // RGB(255, 0, 0)
+GREEN;       // RGB(0, 255, 0)
+BLUE;        // RGB(0, 0, 255)
+YELLOW;      // RGB(255, 255, 0)
+PURPLE;      // RGB(128, 0, 128)
+PINK;        // RGB(255, 192, 203)
+ORANGE;      // RGB(255, 165, 0)
+GRAY;        // RGB(128, 128, 128)
+DARKGRAY;    // RGB(169, 169, 169)
+LIGHTGRAY;   // RGB(211, 211, 211)
+DARKBLUE;    // RGB(0, 0, 139)
+DARKGREEN;   // RGB(0, 100, 0)
+DARKPURPLE;  // RGB(153, 50, 204)
+DARKBROWN;   // RGB(101, 67, 33)
+MAGENTA;     // RGB(255, 0, 255)
+TEAL;        // RGB(0, 128, 128)
+LIME;        // RGB(0, 255, 0)
+CYAN;        // RGB(0, 255, 255)
+GOLD;        // RGB(255, 215, 0)
+SKYBLUE;     // RGB(135, 206, 235)
+BEIGE;       // RGB(245, 245, 220)
+VIOLET;      // RGB(238, 130, 238)
+BROWN;       // RGB(165, 42, 42)
 
-// Create transparent colors using Color::rgba() with alpha channel (0-255)
+// Create transparent colors using Color::from_rgba() with alpha channel (0-255)
 // The last parameter controls transparency (0 = fully transparent, 255 = fully opaque)
-    Color::rgba(0, 0, 0, 128) // 50% transparent black
-    Color::rgba(0, 0, 0, 0) // Completely transparent
-    Color::rgba(255, 0, 0, 100) // Mostly transparent red
+Color::from_rgba(0, 0, 0, 128) // 50% transparent black
+Color::from_rgba(0, 0, 0, 0)   // Completely transparent
+Color::from_rgba(255, 0, 0, 100) // Mostly transparent red
 
 Those color commands can be used anywhere a color is needed. For example when making a text button.
 ```
