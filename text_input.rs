@@ -17,6 +17,10 @@ You can also set the colors of the text box by using:
     .with_colors(WHITE, BLUE, DARKGRAY, RED);
 Where the colors are text color, border color, background color, and cursor color respectively.
 
+You can also specify a custom font with:
+    .with_font(my_font.clone());
+Otherwise the default system font will be used.
+
 Then in the loop you would use:
 
     textbox.update();
@@ -39,6 +43,7 @@ pub struct TextBox {
     pub border_color: Color, // Border color field
     pub background_color: Color, // Background color field
     pub cursor_color: Color, // Cursor color field
+    pub font: Option<Font>, // Optional custom font
 }
 
 impl TextBox {
@@ -58,16 +63,24 @@ impl TextBox {
             border_color: DARKGRAY, // Default color for border
             background_color: LIGHTGRAY, // Default color for background
             cursor_color: BLACK, // Default color for cursor
+            font: None, // Default to None (use system font)
         }
     }
     
     // Add a method to change colors
     #[allow(unused)]
-    pub fn with_colors(mut self, text_color: Color, border_color: Color, background_color: Color, cursor_color: Color) -> Self {
+    pub fn with_colors(&mut self, text_color: Color, border_color: Color, background_color: Color, cursor_color: Color) -> &mut Self {
         self.text_color = text_color;
         self.border_color = border_color;
         self.background_color = background_color;
         self.cursor_color = cursor_color;
+        self
+    }
+
+    // Method to set custom font
+    #[allow(unused)]
+    pub fn with_font(&mut self, font: Font) -> &mut Self {
+        self.font = Some(font);
         self
     }
 
@@ -84,7 +97,21 @@ impl TextBox {
     
                 let mut cursor_offset = 0.0;
                 while self.cursor_index < self.text.len() {
-                    let char_width = measure_text(&self.text[self.cursor_index..self.cursor_index + 1], None, self.font_size as u16, 1.0).width;
+                    let char_width = match &self.font {
+                        Some(font) => measure_text(
+                            &self.text[self.cursor_index..self.cursor_index + 1], 
+                            Some(font), 
+                            self.font_size as u16, 
+                            1.0
+                        ).width,
+                        None => measure_text(
+                            &self.text[self.cursor_index..self.cursor_index + 1], 
+                            None, 
+                            self.font_size as u16, 
+                            1.0
+                        ).width,
+                    };
+                    
                     cursor_offset += char_width;
                     if cursor_offset > mouse_pos {
                         break;
@@ -149,14 +176,43 @@ impl TextBox {
     
         // Draw the background and border with customizable colors
         draw_rectangle(self.x, self.y, self.width, self.height, self.background_color);
-        draw_text(&self.text, text_x, text_y, self.font_size, self.text_color);
+        
+        // Draw text with the appropriate font
+        match &self.font {
+            Some(font) => {
+                draw_text_ex(
+                    &self.text,
+                    text_x,
+                    text_y,
+                    TextParams {
+                        font: Some(font),
+                        font_size: self.font_size as u16,
+                        color: self.text_color,
+                        ..Default::default()
+                    },
+                );
+            },
+            None => {
+                draw_text(&self.text, text_x, text_y, self.font_size, self.text_color);
+            }
+        }
     
         if self.active && self.cursor_visible {
             let mut cursor_offset = 0.0;
             if self.cursor_index > 0 {
                 let cursor_text = &self.text[..self.cursor_index];
-                for c in cursor_text.chars() {
-                    cursor_offset += measure_text(&c.to_string(), None, self.font_size as u16, 1.0).width;
+                
+                // Calculate cursor position based on font
+                if let Some(font) = &self.font {
+                    // Use custom font for measurement
+                    for c in cursor_text.chars() {
+                        cursor_offset += measure_text(&c.to_string(), Some(font), self.font_size as u16, 1.0).width;
+                    }
+                } else {
+                    // Use default font for measurement
+                    for c in cursor_text.chars() {
+                        cursor_offset += measure_text(&c.to_string(), None, self.font_size as u16, 1.0).width;
+                    }
                 }
             }
     
@@ -178,4 +234,5 @@ impl TextBox {
         draw_rectangle_lines(self.x, self.y, self.width, self.height, 2.0, self.border_color);
     }
 }
+
 
