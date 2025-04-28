@@ -41,6 +41,7 @@ pub struct TextButton {
     pub hover_color: Color,
     off_color: Color,
     pub text_color: Color,
+    pub font_size: u16,
 }
 
 impl TextButton {
@@ -58,6 +59,7 @@ impl TextButton {
             hover_color,
             off_color,
             text_color,
+            font_size: 30,
         }
     }
 
@@ -84,8 +86,8 @@ impl TextButton {
         draw_rectangle(self.x, self.y, self.width, self.height, button_color);
 
         // Draw the text
-        let text_width = measure_text(&self.text, None, 30, 1.0).width;
-        draw_text(&self.text, self.x + (self.width / 2.0) - (text_width / 2.0), self.y + (self.height / 2.0), 30.0, self.text_color);
+        let text_width = measure_text(&self.text, None, self.font_size, 1.0).width;
+        draw_text(&self.text, self.x + (self.width / 2.0) - (text_width / 2.0), self.y + (self.height / 2.0), self.font_size.into(), self.text_color);
 
         // After drawing, check if the button was clicked
         is_hovered && self.enabled && is_mouse_button_pressed(MouseButton::Left)
@@ -94,3 +96,4 @@ impl TextButton {
 fn lerp_color(c1: Color, c2: Color, factor: f32) -> Color {
     Color::new(c1.r * (1.0 - factor) + c2.r * factor, c1.g * (1.0 - factor) + c2.g * factor, c1.b * (1.0 - factor) + c2.b * factor, 1.0)
 }
+
