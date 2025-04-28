@@ -56,7 +56,7 @@ let player_speed: f32 = 5.5;
 let gravity = 9.8;
 
 // String and &str
-let message: String = String::from("Hello, World!");
+let message: String = S"Hello, World!".toString();
 let static_message: &str = "Game Over";
 
 // Mutable variables (can be changed)
@@ -85,8 +85,8 @@ let score = 1250;
 // Format variables into a string
 let score_text = format!("Player: {} - Score: {}", player_name, score);
 
-// Using with a label component
-label.set_text(&score_text);
+// Using with a label component directly
+label.set_text(format!("Player: {} - Score: {}", player_name, score));
 ```
 
 ### Advanced Formatting

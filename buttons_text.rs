@@ -20,6 +20,7 @@ Then above the loop section to use you would go:
         BLUE,
         GREEN,
         WHITE,
+        30
     );
 
 You can also specify a custom font with:
@@ -50,7 +51,7 @@ pub struct TextButton {
 }
 
 impl TextButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, text_color: Color) -> Self {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, text_color: Color,font_size:u16) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);
         Self {
@@ -64,7 +65,7 @@ impl TextButton {
             hover_color,
             off_color,
             text_color,
-            font_size: 30,
+            font_size,
             font: None, // Default to None (use system font)
         }
     }
