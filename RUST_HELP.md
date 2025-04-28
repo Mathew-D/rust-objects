@@ -20,19 +20,12 @@ This guide contains examples of common Rust operations in Rust using Macroquad:
 ### Creating Colors from RGBA Values
 
 ```rust
-// Method 1: Using Color::rgba() with values from 0.0 to 1.0
-let red = Color::rgba(1.0, 0.0, 0.0, 1.0);
+// Method 1: Using Color::rgba() with values from 0-255
+let green = Color::rgba(0, 255, 0, 255);
 
-// Method 2: Using Color::rgba_u8() with values from 0-255
-let green = Color::rgba_u8(0, 255, 0, 255);
-
-// Method 3: Using hex values
-let blue = Color::hex("0000FF").unwrap(); // Without alpha
-let blue_alpha = Color::hex("0000FFFF").unwrap(); // With alpha
-
-// Method 4: Using predefined constants
-let yellow = YELLOW;
-let transparent_black = Color::new(0.0, 0.0, 0.0, 0.5); // 50% transparent black
+// Method 2: Using hex values
+//Must add 0x in front of HEX code
+let blue = Color::from_hex(0xb58b18) 
 ```
 
 ## 2. Creating Variables
