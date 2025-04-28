@@ -3,18 +3,39 @@
 *Date: April 27, 2025*
 
 This guide contains examples of common Rust operations in Rust using Macroquad:
-1. Creating variables
-2. Formatting text for labels
-3. If statements and control flow
-4. Parsing text input from TextBox component
-5. Generating and using random numbers
-6. Working with vectors
-7. Using loops
-8. Playing sounds
+1. Working with Colors (RGBA)
+2. Creating variables
+3. Formatting text for labels
+4. If statements and control flow
+5. Parsing text input from TextBox component
+6. Generating and using random numbers
+7. Working with vectors
+8. Using loops
+9. Playing sounds
 
 *For advanced topics, please refer to RUST_ADVANCED.md*
 
-## 1. Creating Variables
+## 1. Working with Colors (RGBA)
+
+### Creating Colors from RGBA Values
+
+```rust
+// Method 1: Using Color::rgba() with values from 0.0 to 1.0
+let red = Color::rgba(1.0, 0.0, 0.0, 1.0);
+
+// Method 2: Using Color::rgba_u8() with values from 0-255
+let green = Color::rgba_u8(0, 255, 0, 255);
+
+// Method 3: Using hex values
+let blue = Color::hex("0000FF").unwrap(); // Without alpha
+let blue_alpha = Color::hex("0000FFFF").unwrap(); // With alpha
+
+// Method 4: Using predefined constants
+let yellow = YELLOW;
+let transparent_black = Color::new(0.0, 0.0, 0.0, 0.5); // 50% transparent black
+```
+
+## 2. Creating Variables
 
 ### Basic Variable Types
 
@@ -49,7 +70,7 @@ const GRAVITY: f32 = 9.8;
 const GAME_NAME: &str = "My Awesome Game";
 ```
 
-## 2. Formatting Text for Labels
+## 3. Formatting Text for Labels
 
 ### Basic String Formatting
 
@@ -90,7 +111,7 @@ let status_text = format!("Player: {} | Lives: {} | Coins: {}", player, lives, c
 label.set_text(&status_text);
 ```
 
-## 3. If Statements and Control Flow
+## 4. If Statements and Control Flow
 
 ### Basic If Statements
 
@@ -169,7 +190,7 @@ match dice_roll {
 }
 ```
 
-## 4. Parsing Text Input
+## 5. Parsing Text Input
 
 ### With Whole Numbers
 
@@ -207,7 +228,7 @@ let is_email = input.contains('@') && input.contains('.');
 println!("Is email format? {}", is_email);
 ```
 
-## 5. Random Numbers
+## 6. Random Numbers
 
 ### Basic Random Numbers (Using Macroquad)
 
@@ -239,7 +260,7 @@ println!("Is email format? {}", is_email);
     println!("Random color: {}", random_element);
 ```
 
-## 6. Working with Vectors
+## 7. Working with Vectors
 
 ### Creating and Using Vectors
 
@@ -312,7 +333,7 @@ let contains_blue = colors.contains(&"Blue");  // true
 scores.clear();  // Removes all elements
 ```
 
-## 7. Using Loops
+## 8. Using Loops
 
 ### For Loops with Ranges
 
@@ -335,6 +356,7 @@ for i in (0..10).step_by(2) {
 // Counting down
 for i in (1..=5).rev() {
     println!("Countdown: {}", i);  // 5, 4, 3, 2, 1
+}
 ```
 
 ### Looping Through Collections
@@ -381,7 +403,7 @@ loop {
 }
 ```
 
-## 8. Playing Sounds
+## 9. Playing Sounds
 
 ### Loading and Playing Sound Effects
 
