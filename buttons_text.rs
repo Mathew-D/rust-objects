@@ -19,6 +19,7 @@ Then above the loop section to use you would go:
         "Click Me",
         BLUE,
         GREEN,
+        WHITE,
     );
 
 Then in the loop you would use:
@@ -39,10 +40,11 @@ pub struct TextButton {
     pub normal_color: Color,
     pub hover_color: Color,
     off_color: Color,
+    pub text_color: Color,
 }
 
 impl TextButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color) -> Self {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color,text_color:Color) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);
         Self {
@@ -55,6 +57,7 @@ impl TextButton {
             normal_color,
             hover_color,
             off_color,
+            text_color,
         }
     }
 
@@ -82,7 +85,7 @@ impl TextButton {
 
         // Draw the text
         let text_width = measure_text(&self.text, None, 30, 1.0).width;
-        draw_text(&self.text, self.x + (self.width / 2.0) - (text_width / 2.0), self.y + (self.height / 2.0), 30.0, WHITE);
+        draw_text(&self.text, self.x + (self.width / 2.0) - (text_width / 2.0), self.y + (self.height / 2.0), 30.0, self.text_color);
 
         // After drawing, check if the button was clicked
         is_hovered && self.enabled && is_mouse_button_pressed(MouseButton::Left)
@@ -91,4 +94,3 @@ impl TextButton {
 fn lerp_color(c1: Color, c2: Color, factor: f32) -> Color {
     Color::new(c1.r * (1.0 - factor) + c2.r * factor, c1.g * (1.0 - factor) + c2.g * factor, c1.b * (1.0 - factor) + c2.b * factor, 1.0)
 }
-
