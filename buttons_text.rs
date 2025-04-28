@@ -22,6 +22,10 @@ Then above the loop section to use you would go:
         WHITE,
     );
 
+You can also specify a custom font with:
+    text_button.with_font(my_font.clone());
+Otherwise the default system font will be used.
+
 Then in the loop you would use:
 if text_button.click() {
 
@@ -42,10 +46,11 @@ pub struct TextButton {
     off_color: Color,
     pub text_color: Color,
     pub font_size: u16,
+    pub font: Option<Font>, // Store the font directly since Font is Clone
 }
 
 impl TextButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color,text_color:Color) -> Self {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, text_color: Color) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);
         Self {
@@ -60,7 +65,15 @@ impl TextButton {
             off_color,
             text_color,
             font_size: 30,
+            font: None, // Default to None (use system font)
         }
+    }
+
+    // Method to set custom font - taking Font by value since it implements Clone
+    #[allow(unused)]
+    pub fn with_font(&mut self, font: Font) -> &mut Self {
+        self.font = Some(font);
+        self
     }
 
     pub fn click(&self) -> bool {
@@ -85,9 +98,38 @@ impl TextButton {
 
         draw_rectangle(self.x, self.y, self.width, self.height, button_color);
 
-        // Draw the text
-        let text_width = measure_text(&self.text, None, self.font_size, 1.0).width;
-        draw_text(&self.text, self.x + (self.width / 2.0) - (text_width / 2.0), self.y + (self.height / 2.0), self.font_size.into(), self.text_color);
+        // Calculate text dimensions based on the chosen font
+        let text_width = match &self.font {
+            Some(font) => measure_text(&self.text, Some(font), self.font_size, 1.0).width,
+            None => measure_text(&self.text, None, self.font_size, 1.0).width,
+        };
+
+        // Draw the text with the appropriate font
+        match &self.font {
+            Some(font) => {
+                draw_text_ex(
+                    &self.text,
+                    self.x + (self.width / 2.0) - (text_width / 2.0),
+                    self.y + (self.height / 2.0),
+                    TextParams {
+                        font: Some(font),
+                        font_size: self.font_size,
+                        color: self.text_color,
+                        ..Default::default()
+                    },
+                );
+            },
+            None => {
+                // Use the default draw_text function
+                draw_text(
+                    &self.text,
+                    self.x + (self.width / 2.0) - (text_width / 2.0),
+                    self.y + (self.height / 2.0),
+                    self.font_size.into(),
+                    self.text_color,
+                );
+            }
+        }
 
         // After drawing, check if the button was clicked
         is_hovered && self.enabled && is_mouse_button_pressed(MouseButton::Left)
@@ -96,4 +138,3 @@ impl TextButton {
 fn lerp_color(c1: Color, c2: Color, factor: f32) -> Color {
     Color::new(c1.r * (1.0 - factor) + c2.r * factor, c1.g * (1.0 - factor) + c2.g * factor, c1.b * (1.0 - factor) + c2.b * factor, 1.0)
 }
-
