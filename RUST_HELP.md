@@ -1,83 +1,41 @@
 # Rust Help Guide - Basic Concepts
 *Created by: Mathew Dusome*  
-*Date: April 28, 2025*
+*Date: April 27, 2025*
 
 This guide contains examples of common Rust operations in Rust using Macroquad:
-1. Loading and using fonts
-2. Working with Colors (RGBA)
-3. Creating variables
-4. Formatting text for labels
-5. If statements and control flow
-6. Parsing text input from TextBox component
-7. Generating and using random numbers
-8. Working with vectors
-9. Using loops
-10. Playing sounds
+1. Working with Colors (RGBA)
+2. Creating variables
+3. Formatting text for labels
+4. If statements and control flow
+5. Parsing text input from TextBox component
+6. Generating and using random numbers
+7. Working with vectors
+8. Using loops
+9. Playing sounds
 
 *For advanced topics, please refer to RUST_ADVANCED.md*
 
-## 1. Loading and using fonts
-
-```rust
-// Load a font (in an async function like main)
-let font = load_ttf_font("path/to/your_font.ttf").await.unwrap();
-
-// Now you can use this font with your label objects
-```
-
-## 2. Working with Colors (RGBA)
+## 1. Working with Colors (RGBA)
 
 ### Creating Colors from RGBA Values
 
 ```rust
-// Method 1: Using Color::rgba() with values from 0-255
-    Color::from_rgba(0, 255, 0, 255) //Green 
+// Method 1: Using Color::rgba() with values from 0.0 to 1.0
+let red = Color::rgba(1.0, 0.0, 0.0, 1.0);
 
-// Method 2: Using hex values
-//Must add 0x in front of HEX code
-    Color::from_hex(0xb58b18) //A blue color
+// Method 2: Using Color::rgba_u8() with values from 0-255
+let green = Color::rgba_u8(0, 255, 0, 255);
+
+// Method 3: Using hex values
+let blue = Color::hex("0000FF").unwrap(); // Without alpha
+let blue_alpha = Color::hex("0000FFFF").unwrap(); // With alpha
+
+// Method 4: Using predefined constants
+let yellow = YELLOW;
+let transparent_black = Color::new(0.0, 0.0, 0.0, 0.5); // 50% transparent black
 ```
 
-### Using Color Constants and Transparency
-
-```rust
-// Macroquad provides many predefined color constants:
-BLACK;       // RGB(0, 0, 0)
-WHITE;       // RGB(255, 255, 255)
-RED;         // RGB(255, 0, 0)
-GREEN;       // RGB(0, 255, 0)
-BLUE;        // RGB(0, 0, 255)
-YELLOW;      // RGB(255, 255, 0)
-PURPLE;      // RGB(128, 0, 128)
-PINK;        // RGB(255, 192, 203)
-ORANGE;      // RGB(255, 165, 0)
-GRAY;        // RGB(128, 128, 128)
-DARKGRAY;    // RGB(169, 169, 169)
-LIGHTGRAY;   // RGB(211, 211, 211)
-DARKBLUE;    // RGB(0, 0, 139)
-DARKGREEN;   // RGB(0, 100, 0)
-DARKPURPLE;  // RGB(153, 50, 204)
-DARKBROWN;   // RGB(101, 67, 33)
-MAGENTA;     // RGB(255, 0, 255)
-TEAL;        // RGB(0, 128, 128)
-LIME;        // RGB(0, 255, 0)
-CYAN;        // RGB(0, 255, 255)
-GOLD;        // RGB(255, 215, 0)
-SKYBLUE;     // RGB(135, 206, 235)
-BEIGE;       // RGB(245, 245, 220)
-VIOLET;      // RGB(238, 130, 238)
-BROWN;       // RGB(165, 42, 42)
-
-// Create transparent colors using Color::from_rgba() with alpha channel (0-255)
-// The last parameter controls transparency (0 = fully transparent, 255 = fully opaque)
-Color::from_rgba(0, 0, 0, 128) // 50% transparent black
-Color::from_rgba(0, 0, 0, 0)   // Completely transparent
-Color::from_rgba(255, 0, 0, 100) // Mostly transparent red
-
-Those color commands can be used anywhere a color is needed. For example when making a text button.
-```
-
-## 3. Creating Variables
+## 2. Creating Variables
 
 ### Basic Variable Types
 
@@ -95,7 +53,7 @@ let player_speed: f32 = 5.5;
 let gravity = 9.8;
 
 // String and &str
-let message: String = S"Hello, World!".toString();
+let message: String = String::from("Hello, World!");
 let static_message: &str = "Game Over";
 
 // Mutable variables (can be changed)
@@ -112,7 +70,7 @@ const GRAVITY: f32 = 9.8;
 const GAME_NAME: &str = "My Awesome Game";
 ```
 
-## 4. Formatting Text for Labels
+## 3. Formatting Text for Labels
 
 ### Basic String Formatting
 
@@ -124,8 +82,8 @@ let score = 1250;
 // Format variables into a string
 let score_text = format!("Player: {} - Score: {}", player_name, score);
 
-// Using with a label component directly
-label.set_text(format!("Player: {} - Score: {}", player_name, score));
+// Using with a label component
+label.set_text(&score_text);
 ```
 
 ### Advanced Formatting
@@ -153,7 +111,7 @@ let status_text = format!("Player: {} | Lives: {} | Coins: {}", player, lives, c
 label.set_text(&status_text);
 ```
 
-## 5. If Statements and Control Flow
+## 4. If Statements and Control Flow
 
 ### Basic If Statements
 
@@ -232,7 +190,7 @@ match dice_roll {
 }
 ```
 
-## 6. Parsing Text Input
+## 5. Parsing Text Input
 
 ### With Whole Numbers
 
@@ -270,7 +228,7 @@ let is_email = input.contains('@') && input.contains('.');
 println!("Is email format? {}", is_email);
 ```
 
-## 7. Random Numbers
+## 6. Random Numbers
 
 ### Basic Random Numbers (Using Macroquad)
 
@@ -302,7 +260,7 @@ println!("Is email format? {}", is_email);
     println!("Random color: {}", random_element);
 ```
 
-## 8. Working with Vectors
+## 7. Working with Vectors
 
 ### Creating and Using Vectors
 
@@ -375,7 +333,7 @@ let contains_blue = colors.contains(&"Blue");  // true
 scores.clear();  // Removes all elements
 ```
 
-## 9. Using Loops
+## 8. Using Loops
 
 ### For Loops with Ranges
 
@@ -445,7 +403,7 @@ loop {
 }
 ```
 
-## 10. Playing Sounds
+## 9. Playing Sounds
 
 ### Loading and Playing Sound Effects
 
