@@ -3,6 +3,10 @@ Made by: Mathew Dusome
 April 30 2025
 To import you need:
 Adds TextFile functionality for cross-platform file operations
+
+In Cargo.toml add:
+    gloo-storage = "0.2"
+
 In the mod objects section add:
         pub mod textfiles;
     
