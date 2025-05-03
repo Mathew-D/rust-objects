@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
+May 2 2025
 To import you need:
 Adds a label object
 In the mod objects section add:
@@ -103,9 +103,9 @@ pub enum TextAlign {
 
 impl Label {
     // Constructor using x and y separately
-    pub fn new(text: &str, x: f32, y: f32, font_size: u16) -> Self {
+    pub fn new<T: Into<String>>(text: T, x: f32, y: f32, font_size: u16) -> Self {
         let mut label = Self {
-            text: text.to_string(),
+            text: text.into(),
             x,
             y,
             font_size,
@@ -217,15 +217,17 @@ impl Label {
         self
     }
 
-    // Method to set text
+    // Method to set text - now accepts both String and &str
     #[allow(unused)]
-    pub fn set_text(&mut self, new_text: &str) {
-        self.text = new_text.to_string();
+    pub fn set_text<T: Into<String>>(&mut self, new_text: T) -> &mut Self {
+        self.text = new_text.into();
         
         // Only recalculate if we need to (when not using fixed dimensions)
         // Even with fixed dimensions, we still need to recalculate line dimensions
         // for proper text alignment
         self.calculate_text_dimensions();
+        
+        self
     }
     
     // Getter for x position
