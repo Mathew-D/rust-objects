@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
+May 2 2025
 Adds a text input object
 
 In the mod objects section add:
@@ -11,39 +11,66 @@ Add with the other use statements
     use objects::text_input::TextBox;
 
 Then to use this you would put the following above the loop: 
-    let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0,50.0);
-Where the numbers are x, y, width, height, font size
-You can also set the colors of the text box by using:
-    .with_colors(WHITE, BLUE, DARKGRAY, RED);
-Where the colors are text color, border color, background color, and cursor color respectively.
+    let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0, 50.0);
+Where the parameters are x, y, width, height, font size
 
-You can also specify a custom font with:
-    .with_font(my_font.clone());
-Otherwise the default system font will be used.
+You can customize the text box using various methods:
 
-Then in the loop you would use:
+APPEARANCE CUSTOMIZATION:
+    // Set colors (text, border, background, cursor)
+    textbox.with_colors(WHITE, BLUE, DARKGRAY, RED);
+    
+    // Set individual colors
+    textbox.set_text_color(WHITE)
+          .set_border_color(BLUE)
+          .set_background_color(DARKGRAY)
+          .set_cursor_color(RED);
+    
+    // Set custom font
+    textbox.with_font(my_font.clone());
+    
+    // Change position and dimensions
+    textbox.set_position(150.0, 150.0);
+    textbox.set_dimensions(250.0, 50.0);
+    
+TEXT MANIPULATION:
+    // Get current text
+    let current_text = textbox.get_text();
+    
+    // Set text content
+    textbox.set_text("Hello World");
+    
+    // Check active state
+    if textbox.is_active() {
+        // Do something when textbox is active
+    }
+    
+    // Set cursor position
+    textbox.set_cursor_index(5);
 
-    textbox.update();
+Then in the main loop you would use:
+    // Update and draw the textbox in one step
     textbox.draw();
 */
 use macroquad::prelude::*;
 
 pub struct TextBox {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-    pub text: String,
-    pub active: bool,
-    pub cursor_index: usize,
-    pub cursor_timer: f32,
-    pub cursor_visible: bool,
-    pub font_size: f32, // Font size field
-    pub text_color: Color, // Text color field
-    pub border_color: Color, // Border color field
-    pub background_color: Color, // Background color field
-    pub cursor_color: Color, // Cursor color field
-    pub font: Option<Font>, // Optional custom font
+    // Make all fields private for complete encapsulation
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    text: String,
+    active: bool,
+    cursor_index: usize,
+    cursor_timer: f32,
+    cursor_visible: bool,
+    font_size: f32,
+    text_color: Color,
+    border_color: Color,
+    background_color: Color,
+    cursor_color: Color,
+    font: Option<Font>,
 }
 
 impl TextBox {
@@ -67,6 +94,77 @@ impl TextBox {
         }
     }
     
+    // Position and dimension getters/setters
+    #[allow(unused)]
+    pub fn get_x(&self) -> f32 {
+        self.x
+    }
+    
+    #[allow(unused)]
+    pub fn set_x(&mut self, x: f32) -> &mut Self {
+        self.x = x;
+        self
+    }
+    
+    #[allow(unused)]
+    pub fn get_y(&self) -> f32 {
+        self.y
+    }
+    
+    #[allow(unused)]
+    pub fn set_y(&mut self, y: f32) -> &mut Self {
+        self.y = y;
+        self
+    }
+    
+    #[allow(unused)]
+    pub fn get_width(&self) -> f32 {
+        self.width
+    }
+    
+    #[allow(unused)]
+    pub fn set_width(&mut self, width: f32) -> &mut Self {
+        self.width = width;
+        self
+    }
+    
+    #[allow(unused)]
+    pub fn get_height(&self) -> f32 {
+        self.height
+    }
+    
+    #[allow(unused)]
+    pub fn set_height(&mut self, height: f32) -> &mut Self {
+        self.height = height;
+        self
+    }
+    
+    // Position convenience methods
+    #[allow(unused)]
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.x, self.y)
+    }
+    
+    #[allow(unused)]
+    pub fn set_position(&mut self, x: f32, y: f32) -> &mut Self {
+        self.x = x;
+        self.y = y;
+        self
+    }
+    
+    // Dimension convenience methods
+    #[allow(unused)]
+    pub fn get_dimensions(&self) -> (f32, f32) {
+        (self.width, self.height)
+    }
+    
+    #[allow(unused)]
+    pub fn set_dimensions(&mut self, width: f32, height: f32) -> &mut Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
+    
     // Add a method to change colors
     #[allow(unused)]
     pub fn with_colors(&mut self, text_color: Color, border_color: Color, background_color: Color, cursor_color: Color) -> &mut Self {
@@ -84,7 +182,132 @@ impl TextBox {
         self
     }
 
-    pub fn update(&mut self) {
+    // Get the current text content
+    #[allow(unused)]
+    pub fn get_text(&self) -> &str {
+        &self.text
+    }
+    
+    // Set the text content - now accepts both String and &str
+    #[allow(unused)]
+    pub fn set_text<T: Into<String>>(&mut self, text: T) -> &mut Self {
+        self.text = text.into();
+        if self.cursor_index > self.text.len() {
+            self.cursor_index = self.text.len();
+        }
+        self
+    }
+    
+    // Active state getters/setters
+    #[allow(unused)]
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+
+    #[allow(unused)]
+    pub fn set_active(&mut self, active: bool) -> &mut Self {
+        self.active = active;
+        self
+    }
+
+    // Cursor index getters/setters
+    #[allow(unused)]
+    pub fn get_cursor_index(&self) -> usize {
+        self.cursor_index
+    }
+
+    #[allow(unused)]
+    pub fn set_cursor_index(&mut self, index: usize) -> &mut Self {
+        if index <= self.text.len() {
+            self.cursor_index = index;
+        }
+        self
+    }
+
+    // Font size getters/setters
+    #[allow(unused)]
+    pub fn get_font_size(&self) -> f32 {
+        self.font_size
+    }
+
+    #[allow(unused)]
+    pub fn set_font_size(&mut self, size: f32) -> &mut Self {
+        self.font_size = size;
+        self
+    }
+
+    // Color getters/setters
+    #[allow(unused)]
+    pub fn get_text_color(&self) -> Color {
+        self.text_color
+    }
+
+    #[allow(unused)]
+    pub fn set_text_color(&mut self, color: Color) -> &mut Self {
+        self.text_color = color;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn get_border_color(&self) -> Color {
+        self.border_color
+    }
+
+    #[allow(unused)]
+    pub fn set_border_color(&mut self, color: Color) -> &mut Self {
+        self.border_color = color;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn get_background_color(&self) -> Color {
+        self.background_color
+    }
+
+    #[allow(unused)]
+    pub fn set_background_color(&mut self, color: Color) -> &mut Self {
+        self.background_color = color;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn get_cursor_color(&self) -> Color {
+        self.cursor_color
+    }
+
+    #[allow(unused)]
+    pub fn set_cursor_color(&mut self, color: Color) -> &mut Self {
+        self.cursor_color = color;
+        self
+    }
+
+    // Font getter/setter
+    #[allow(unused)]
+    pub fn get_font(&self) -> Option<&Font> {
+        self.font.as_ref()
+    }
+
+    // Primary method - both updates and draws the textbox
+    #[allow(unused)]
+    pub fn draw(&mut self) {
+        self.update_internal();
+        self.draw_internal();
+    }
+    
+    // For cases when only drawing is needed without updating
+    #[allow(unused)]
+    pub fn draw_only(&self) {
+        self.draw_internal();
+    }
+    
+    // For cases when only updating is needed without drawing
+    #[allow(unused)]
+    pub fn update_only(&mut self) {
+        self.update_internal();
+    }
+
+    // Now private - internal implementation only
+    fn update_internal(&mut self) {
         if is_mouse_button_pressed(MouseButton::Left) {
             let (mx, my) = mouse_position();
             self.active = mx >= self.x && mx <= self.x + self.width && my >= self.y && my <= self.y + self.height;
@@ -169,7 +392,8 @@ impl TextBox {
         
     }
     
-    pub fn draw(&self) {
+    // Now private - internal implementation only
+    fn draw_internal(&self) {
         let padding = 5.0;
         let text_x = self.x + padding;
         let text_y = self.y + self.height / 2.0 + self.font_size / 2.5;
