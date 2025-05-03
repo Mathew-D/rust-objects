@@ -257,7 +257,7 @@ impl Label {
     }
 
     // Method to draw the label
-    pub fn draw(&self) {
+    pub fn draw(&mut self) {
         let line_height = self.font_size as f32 * self.line_spacing;
         
         // Determine width and height (using fixed values if set, otherwise use content size)
