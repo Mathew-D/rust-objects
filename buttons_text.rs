@@ -201,7 +201,7 @@ impl TextButton {
     
     // Setter for the button text - updates cached measurements
     #[allow(dead_code)]
-    pub fn set_text(&mut self, text: impl Into<String>) -> &mut Self {
+    pub fn set_text<T: Into<String>>(&mut self, text: T) -> &mut Self {
         self.text = text.into();
         
         // Update cached text measurements
