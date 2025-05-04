@@ -1,26 +1,43 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
+May 3, 2025
+Program Details: Image object for displaying and manipulating images
+
 To import you need:
-Adds a image object 
 In the mod objects section add:
     pub mod images_obj;
     
 Then add the following with the use commands:
 use objects::images_obj::ImageObject;
 
-Then to use this you would put the following above the loop: 
+Usage examples:
+1. Create a new image object:
     let img = ImageObject::new(
         "assets/image_name.png",
-        100.0,
-        200.0,
-        200.0,
-        60.0,
-        true,  // Enable stretching
-        1.0,   // Normal zoom (100%)
+        100.0,  // width
+        200.0,  // height
+        200.0,  // x position
+        60.0,   // y position
+        true,   // Enable stretching
+        1.0,    // Normal zoom (100%)
     ).await;
 
-    // Or with custom stretch and zoom options:
+2. Create an empty image to load later:
+    // Pass an empty string "" instead of a file path to create a cleared/empty image
+    let img = ImageObject::new(
+        "",     // Empty string creates a transparent image
+        100.0,  // width
+        200.0,  // height
+        200.0,  // x position
+        60.0,   // y position
+        true,   // Enable stretching
+        1.0,    // Normal zoom (100%)
+    ).await;
+    
+    // Then later, you can set a texture if you use the texture manager:
+    img.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
+
+3. With custom stretch and zoom options:
     let img_custom = ImageObject::new(
         "assets/image_name.png",
         100.0,
@@ -31,8 +48,24 @@ Then to use this you would put the following above the loop:
         1.5,    // Set zoom to 150%
     ).await;
 
-Then in side the loop you would use:
-img.draw();
+4. Using with TextureManager:
+    // Since all textures are preloaded, you can directly pass the result of get_preload()
+    // to set_preload() without intermediate variables:
+    image_obj.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
+    
+    // The unwrap() is safe because we know the texture was preloaded
+
+5. Clear an image (set to transparent):
+    image_obj.clear();
+    
+6. Draw the image in your game loop:
+    img.draw();
+
+Additional functionality:
+- Zoom controls: set_zoom(), zoom_in(), zoom_out(), reset_zoom()
+- Stretch controls: enable_stretch(), disable_stretch(), toggle_stretch()
+- Position control: set_position()
+- Check if empty: is_empty()
 */
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
@@ -46,6 +79,7 @@ pub struct ImageObject {
     transparency_mask: Vec<u8>, // Now storing raw transparency data (bitmask)
     stretch_enabled: bool, // Flag to control image stretching
     zoom_level: f32, // Zoom factor to scale the image
+    filename: String, // Store the original filename/path
 }
 
 impl ImageObject {
@@ -59,6 +93,26 @@ impl ImageObject {
         stretch_enabled: bool,
         zoom_level: f32
     ) -> Self {
+        // Check if the asset path is empty
+        if asset_path.is_empty() {
+            // Create an empty/clear image
+            let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
+            let empty_mask = vec![0]; // Single transparent pixel
+            
+            return Self { 
+                x, 
+                y, 
+                width, 
+                height, 
+                texture: empty_texture, 
+                transparency_mask: empty_mask,
+                stretch_enabled,
+                zoom_level: zoom_level.max(0.1), // Ensure minimum zoom
+                filename: "__empty__".to_string(), // Use a special filename
+            };
+        }
+        
+        // Normal path for valid asset paths
         let (texture, transparency_mask) = set_texture_main(asset_path).await;
         Self { 
             x, 
@@ -69,6 +123,7 @@ impl ImageObject {
             transparency_mask,
             stretch_enabled,
             zoom_level: zoom_level.max(0.1), // Ensure minimum zoom
+            filename: asset_path.to_string(), // Store the original filename
         }
     }
 
@@ -117,6 +172,12 @@ impl ImageObject {
         self.y = pos[1];
     }
 
+    // Get the original filename/path of the loaded image
+    #[allow(unused)]
+    pub fn get_filename(&self) -> &str {
+        &self.filename
+    }
+
     // Get the transparency mask (bitmask)
     #[allow(unused)]
     pub fn get_mask(&self) -> Vec<u8> {
@@ -127,6 +188,7 @@ impl ImageObject {
         let (texture, transparency_mask) = set_texture_main(texture_path).await;
         self.texture = texture;
         self.transparency_mask = transparency_mask;
+        self.filename = texture_path.to_string(); // Update the filename when texture changes
     }
     
     // Methods to toggle stretching
@@ -186,9 +248,42 @@ impl ImageObject {
     pub fn reset_zoom(&mut self) {
         self.zoom_level = 1.0;
     }
+    
+    // Check if the image is currently cleared/empty
+    #[allow(unused)]
+    pub fn is_empty(&self) -> bool {
+        self.texture.width() == 1.0 && self.texture.height() == 1.0
+    }
+    
+    // Check if collision should be performed (not empty)
+    #[allow(unused)]
+    pub fn is_collidable(&self) -> bool {
+        !self.is_empty()
+    }
+    
+    // Public method for setting a preloaded texture that accepts the tuple directly
+    #[allow(unused)]
+    pub fn set_preload(&mut self, preloaded: (Texture2D, Vec<u8>, String)) {
+        let (texture, mask, filename) = preloaded;
+        self.texture = texture;
+        self.transparency_mask = mask;
+        self.filename = filename;
+    }
+
+    /// Clears the image by setting it to a 1x1 transparent pixel
+    #[allow(unused)]
+    pub fn clear(&mut self) {
+        // Create a 1x1 transparent pixel texture
+        let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
+        let empty_mask = vec![0]; // Single transparent pixel
+        
+        // Update the image object with this empty texture
+        self.texture = empty_texture;
+        self.transparency_mask = empty_mask;
+        self.filename = "__empty__".to_string();
+    }
 }
 
-// ✅ Works for Web and Native by loading the image as raw bytes
 async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u8> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
