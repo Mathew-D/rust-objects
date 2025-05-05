@@ -12,7 +12,7 @@ Add with the other use statements
 
 Then to use this you would put the following above the loop: 
     let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
-    let list_view = ListView::new(list_items, 50.0, 100.0, 20);
+    let list_view = ListView::new(&list_items, 50.0, 100.0, 20);
 Where the numbers are x, y, font size
 
 You can also set the colors and item spacing by using:
@@ -25,18 +25,31 @@ Where the spacing is the line spacing and padding is the padding around the text
 
 You can set visible items and enable scrolling with:
     .with_max_visible_items(5)
-Full Exmple:
+
+List management functions:
+    .add_item("New Item")    - Add a single item to the list
+    .add_items(&vec!["Item A", "Item B"])    - Add multiple items at once
+    .clear()    - Remove all items from the list
+    .remove_item(index)    - Remove item at specific index
+
+Full Example:
    
     let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
-    let mut list_view = ListView::new(list_items, 50.0, 100.0, 20)
+    let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20)
         .with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
         .with_spacing(1.5)
         .with_padding(10.0)
         .with_max_visible_items(5); // Enable scrolling by limiting visible items
 
+    // list_items can still be used here since ListView::new() takes a reference
+    
+    // Adding more items (note the & reference)
+    let more_items = vec!["Item 5", "Item 6"];
+    list_view.add_items(&more_items);
+    // more_items can still be used here
+
 Then in the loop you would do:
-    list_view.update();
-    list_view.draw();
+    list_view.draw(); 
 */
 
 use macroquad::prelude::*;
@@ -61,10 +74,10 @@ pub struct ListView {
 }
 
 impl ListView {
-    // Constructor with a vector of strings
-    pub fn new<T: ToString>(items: Vec<T>, x: f32, y: f32, font_size: u16) -> Self {
+    // Constructor with a vector of strings (takes a reference to avoid taking ownership)
+    pub fn new<T: ToString + Clone>(items: &Vec<T>, x: f32, y: f32, font_size: u16) -> Self {
         Self {
-            items: items.into_iter().map(|item| item.to_string()).collect(),
+            items: items.iter().map(|item| item.to_string()).collect(),
             x,
             y,
             font_size,
@@ -123,6 +136,22 @@ impl ListView {
     #[allow(unused)]
     pub fn add_item<T: ToString>(&mut self, item: T) {
         self.items.push(item.to_string());
+    }
+
+    // Method to add multiple items
+    #[allow(unused)]
+    pub fn add_items<T: ToString + Clone>(&mut self, items: &Vec<T>) {
+        for item in items {
+            self.items.push(item.to_string());
+        }
+    }
+
+    // Method to clear all items
+    #[allow(unused)]
+    pub fn clear(&mut self) {
+        self.items.clear();
+        self.selected_index = None;
+        self.scroll_offset = 0;
     }
 
     // Method to remove an item at specific index
@@ -267,7 +296,7 @@ impl ListView {
     }
 
     // Method to handle click and update selection
-    pub fn update(&mut self) {
+    fn update(&mut self) {
         // Handle scrolling with mouse wheel
         self.handle_scroll();
         
@@ -304,7 +333,10 @@ impl ListView {
     }
 
     // Method to draw the list view
-    pub fn draw(&self) {
+    pub fn draw(&mut self) {
+        // Handle all updates first (previously in the update method)
+        self.update();
+        
         let item_height = self.font_size as f32 * self.item_spacing;
         let (width, height) = self.calculate_dimensions();
         
