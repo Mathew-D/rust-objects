@@ -32,7 +32,6 @@ Then to use this you would put the following above the loop:
     64.0, 64.0 = size
     4, 1 = grid (cols, rows) in the spritesheet
     0.1 = frame duration in seconds
-    0.1 = frame duration in seconds
     true = (loop animation)
 
 
@@ -70,10 +69,7 @@ Then to use this you would put the following above the loop:
     true = (loop animation)
 
 Then inside the loop you would use:
-    // Update animation state (pass delta time)
-    animated_sprite.update(get_frame_time());
-    
-    // Draw the current frame
+    // Draw the current frame (animation updates automatically!)
     animated_sprite.draw();
     
     // You can also control animation:
@@ -127,6 +123,7 @@ pub struct AnimatedImage {
     time_accumulated: f32,
     state: AnimationState,
     loop_animation: bool,
+    last_update: f32, // Store the last update time
 }
 
 impl AnimatedImage {
@@ -166,6 +163,7 @@ impl AnimatedImage {
             time_accumulated: 0.0,
             state: AnimationState::Playing,
             loop_animation,
+            last_update: get_time(),
         }
     }
     
@@ -268,6 +266,7 @@ impl AnimatedImage {
             time_accumulated: 0.0,
             state: AnimationState::Playing,
             loop_animation,
+            last_update: get_time(),
         }
     }
     
@@ -380,6 +379,7 @@ impl AnimatedImage {
                         time_accumulated: 0.0,
                         state: AnimationState::Playing,
                         loop_animation,
+                        last_update: get_time(),
                     };
                 } else {
                     // Fall back to loading as a regular texture if GIF processing fails
@@ -523,38 +523,7 @@ impl AnimatedImage {
             time_accumulated: 0.0,
             state: AnimationState::Stopped,
             loop_animation: false,
-        }
-    }
-    
-    // Update animation state
-    pub fn update(&mut self, delta_time: f32) {
-        if self.state != AnimationState::Playing || self.total_frames <= 1 {
-            return;
-        }
-        
-        self.time_accumulated += delta_time;
-        
-        // Get current frame duration (either from frame_durations or use default)
-        let current_duration = if let Some(durations) = &self.frame_durations {
-            durations[self.current_frame % durations.len()]
-        } else {
-            self.frame_duration
-        };
-        
-        // Time to advance to next frame?
-        if self.time_accumulated >= current_duration {
-            self.time_accumulated -= current_duration;
-            self.current_frame += 1;
-            
-            // Handle end of animation
-            if self.current_frame >= self.total_frames {
-                if self.loop_animation {
-                    self.current_frame = 0; // Loop back to start
-                } else {
-                    self.current_frame = self.total_frames - 1; // Stay on last frame
-                    self.state = AnimationState::Stopped;
-                }
-            }
+            last_update: 0.0,
         }
     }
     
@@ -572,9 +541,41 @@ impl AnimatedImage {
     }
     
     // Draw the current animation frame
-    pub fn draw(&self) {
+    pub fn draw(&mut self) {
         if self.total_frames == 0 {
             return;
+        }
+        
+        // Auto-update animation based on elapsed time
+        if self.state == AnimationState::Playing && self.total_frames > 1 {
+            let current_time = get_time();
+            let delta_time = (current_time - self.last_update) as f32;
+            self.last_update = current_time;
+            
+            self.time_accumulated += delta_time;
+            
+            // Get current frame duration
+            let current_duration = if let Some(durations) = &self.frame_durations {
+                durations[self.current_frame % durations.len()]
+            } else {
+                self.frame_duration
+            };
+            
+            // Advance to next frame if needed
+            if self.time_accumulated >= current_duration {
+                self.time_accumulated -= current_duration;
+                self.current_frame += 1;
+                
+                // Handle end of animation
+                if self.current_frame >= self.total_frames {
+                    if self.loop_animation {
+                        self.current_frame = 0; // Loop back to start
+                    } else {
+                        self.current_frame = self.total_frames - 1; // Stay on last frame
+                        self.state = AnimationState::Stopped;
+                    }
+                }
+            }
         }
         
         let source_rect = self.get_current_frame_rect();
