@@ -184,8 +184,8 @@ impl TextBox {
 
     // Get the current text content
     #[allow(unused)]
-    pub fn get_text(&self) -> &str {
-        &self.text
+    pub fn get_text(&self) -> String {
+        self.text.clone()
     }
     
     // Set the text content - now accepts both String and &str
