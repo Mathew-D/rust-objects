@@ -12,34 +12,34 @@ Add with the other use statements
 
 Then to use this you would put the following above the loop: 
     let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
-    let list_view = ListView::new(&list_items, 50.0, 100.0, 20);
+    let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20);
 Where the numbers are x, y, font size
 
 You can also set the colors and item spacing by using:
-    .with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
+    list_view.with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
 Where the colors are text color, background color, and selection color respectively. 
     
-    .with_spacing(1.5)
-    .with_padding(10.0)
+    list_view.with_spacing(1.5)
+           .with_padding(10.0)
 Where the spacing is the line spacing and padding is the padding around the text.
 
 You can set visible items and enable scrolling with:
-    .with_max_visible_items(5)
+    list_view.with_max_visible_items(5)
 
 List management functions:
-    .add_item("New Item")    - Add a single item to the list
-    .add_items(&vec!["Item A", "Item B"])    - Add multiple items at once
-    .clear()    - Remove all items from the list
-    .remove_item(index)    - Remove item at specific index
+    list_view.add_item("New Item")    - Add a single item to the list
+    list_view.add_items(&vec!["Item A", "Item B"])    - Add multiple items at once
+    list_view.clear()    - Remove all items from the list
+    list_view.remove_item(index)    - Remove item at specific index
 
 Full Example:
    
     let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
-    let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20)
-        .with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
-        .with_spacing(1.5)
-        .with_padding(10.0)
-        .with_max_visible_items(5); // Enable scrolling by limiting visible items
+    let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20);
+    list_view.with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
+             .with_spacing(1.5)
+             .with_padding(10.0)
+             .with_max_visible_items(5); // Enable scrolling by limiting visible items
 
     // list_items can still be used here since ListView::new() takes a reference
     
@@ -97,7 +97,7 @@ impl ListView {
     }
 
     // Method to set foreground, background, and selection colors
-    pub fn with_colors(mut self, foreground: Color, background: Option<Color>, selection_color: Option<Color>) -> Self {
+    pub fn with_colors(&mut self, foreground: Color, background: Option<Color>, selection_color: Option<Color>) -> &mut Self {
         self.foreground = foreground;
         self.background = background;
         self.selection_color = selection_color;
@@ -105,26 +105,26 @@ impl ListView {
     }
 
     // Method to set item spacing
-    pub fn with_spacing(mut self, spacing: f32) -> Self {
+    pub fn with_spacing(&mut self, spacing: f32) -> &mut Self {
         self.item_spacing = spacing;
         self
     }
 
     // Method to set item padding
-    pub fn with_padding(mut self, padding: f32) -> Self {
+    pub fn with_padding(&mut self, padding: f32) -> &mut Self {
         self.item_padding = padding;
         self
     }
 
     // Method to set max visible items (enables scrolling)
-    pub fn with_max_visible_items(mut self, count: usize) -> Self {
+    pub fn with_max_visible_items(&mut self, count: usize) -> &mut Self {
         self.max_visible_items = Some(count);
         self
     }
 
     // Method to customize scrollbar
     #[allow(unused)]
-    pub fn with_scrollbar_settings(mut self, show: bool, width: f32, color: Color, handle_color: Color) -> Self {
+    pub fn with_scrollbar_settings(&mut self, show: bool, width: f32, color: Color, handle_color: Color) -> &mut Self {
         self.show_scrollbar = show;
         self.scrollbar_width = width;
         self.scrollbar_color = color;
