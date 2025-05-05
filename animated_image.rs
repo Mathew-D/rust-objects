@@ -163,7 +163,7 @@ impl AnimatedImage {
             time_accumulated: 0.0,
             state: AnimationState::Playing,
             loop_animation,
-            last_update: get_time(),
+            last_update: get_time() as f32,
         }
     }
     
@@ -266,7 +266,7 @@ impl AnimatedImage {
             time_accumulated: 0.0,
             state: AnimationState::Playing,
             loop_animation,
-            last_update: get_time(),
+            last_update: get_time()as f32,
         }
     }
     
@@ -379,7 +379,7 @@ impl AnimatedImage {
                         time_accumulated: 0.0,
                         state: AnimationState::Playing,
                         loop_animation,
-                        last_update: get_time(),
+                        last_update: get_time() as f32,
                     };
                 } else {
                     // Fall back to loading as a regular texture if GIF processing fails
@@ -549,8 +549,8 @@ impl AnimatedImage {
         // Auto-update animation based on elapsed time
         if self.state == AnimationState::Playing && self.total_frames > 1 {
             let current_time = get_time();
-            let delta_time = (current_time - self.last_update) as f32;
-            self.last_update = current_time;
+            let delta_time = (current_time - self.last_update as f64) as f32;
+            self.last_update = current_time as f32;
             
             self.time_accumulated += delta_time;
             
