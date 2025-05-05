@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-Feb 6 2025
+May 5 2025
 To import you need:
 Adds a button object
 In the mod objects section add:
@@ -90,11 +90,11 @@ impl TextButton {
     pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, font_size: u16) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);
-        let text = text.into();
+        let text_string = text.into();
         let text_color = WHITE; // Default text color
         
         // Pre-calculate and cache values
-        let cached_text_width = measure_text(&text, None, font_size, 1.0).width;
+        let cached_text_width = measure_text(&text_string, None, font_size, 1.0).width;
         let cached_text_position = Vec2::new(
             x + (width / 2.0) - (cached_text_width / 2.0),
             y + (height / 2.0),
@@ -106,7 +106,7 @@ impl TextButton {
             y,
             width,
             height,
-            text,
+            text: text_string.to_string(),
             enabled,
             normal_color,
             hover_color,
