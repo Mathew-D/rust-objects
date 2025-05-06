@@ -7,7 +7,7 @@ In the mod objects section add:
     pub mod database;
     
 Then add the following with the use commands:
-use objects::database::*;  // This imports all functions directly
+use crate::objects::database::*;  // This imports all functions directly
 
 To use this module, add these dependencies to your Cargo.toml file:
 

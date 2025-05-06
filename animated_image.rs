@@ -7,7 +7,7 @@ In the mod objects section add:
     pub mod animated_image;
     
 Then add the following with the use commands:
-use objects::animated_image::AnimatedImage;
+use crate::objects::animated_image::AnimatedImage;
 
 GIF ANIMATION SUPPORT:
 This module now supports animated GIFs on both desktop and web platforms.

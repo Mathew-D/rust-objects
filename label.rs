@@ -8,7 +8,7 @@ In the mod objects section add:
     
 
 Add with the other use statements
-    use objects::label::Label;
+    use crate::objects::label::Label;
 
 Then to use this you would put the following above the loop: 
     let lbl_out = Label::new("Hello\nWorld", 50.0, 100.0, 30);

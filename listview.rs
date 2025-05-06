@@ -8,7 +8,7 @@ In the mod objects section add:
 
 
 Add with the other use statements
-    use objects::listview::ListView;
+    use crate::objects::listview::ListView;
 
 Then to use this you would put the following above the loop: 
     let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];

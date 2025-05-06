@@ -7,7 +7,7 @@ In the mod objects section add:
     pub mod messagebox;
     
 Then add the following with the use commands:
-use objects::messagebox::{MessageBox, MessageBoxResult};
+use crate::objects::messagebox::{MessageBox, MessageBoxResult};
 
 Then to use this you would put the following above the loop: 
     // Create a simple message box with OK button

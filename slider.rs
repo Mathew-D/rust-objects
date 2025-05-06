@@ -7,7 +7,7 @@ In the mod objects section add:
     pub mod slider;
     
 Then add the following with the use commands:
-use objects::slider::Slider;
+use crate::objects::slider::Slider;
 
 Then to use this you would put the following above the loop: 
     // Create a basic slider (horizontal by default)

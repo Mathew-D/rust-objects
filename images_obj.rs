@@ -8,7 +8,7 @@ In the mod objects section add:
     pub mod images_obj;
     
 Then add the following with the use commands:
-use objects::images_obj::ImageObject;
+use crate::objects::images_obj::ImageObject;
 
 Usage examples:
 1. Create a new image object:

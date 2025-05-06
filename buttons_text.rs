@@ -7,7 +7,7 @@ In the mod objects section add:
     pub mod txt_buttons;
 
 Then with the other use commands add:
-use objects::txt_buttons::TextButton;
+use crate::objects::txt_buttons::TextButton;
 
 Then above the loop section to use you would go:
    

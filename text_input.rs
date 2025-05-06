@@ -8,7 +8,7 @@ In the mod objects section add:
 
 
 Add with the other use statements
-    use objects::text_input::TextBox;
+    use crate::objects::text_input::TextBox;
 
 Then to use this you would put the following above the loop: 
     let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0, 50.0);

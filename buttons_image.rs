@@ -8,7 +8,7 @@ In the mod objects section add:
 
 Then add the following with the use commands:
 
-use objects::img_button::ImageButton;
+use crate::objects::img_button::ImageButton;
 
 Then to use this you would put the following above the loop: 
     let img_button = ImageButton::new(

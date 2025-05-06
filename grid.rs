@@ -8,7 +8,7 @@ In the mod objects section add:
     pub mod grid;
     
 Then add the following with the use commands:
-use objects::grid::draw_grid;
+use crate::objects::grid::draw_grid;
 
 Then in side the loop I would use:
     draw_grid(50.0, BROWN);

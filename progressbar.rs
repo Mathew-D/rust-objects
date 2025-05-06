@@ -7,7 +7,7 @@ In the mod objects section add:
     pub mod progressbar;
     
 Then add the following with the use commands:
-use objects::progressbar::ProgressBar;
+use crate::objects::progressbar::ProgressBar;
 
 Then to use this you would put the following above the loop: 
     // Create a basic horizontal progress bar

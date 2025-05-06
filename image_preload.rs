@@ -8,7 +8,7 @@ To use this:
     pub mod image_preload;
     
 2. Add the following use command:
-    use objects::image_preload::TextureManager;
+    use crate::objects::image_preload::TextureManager;
 
 3. Create and initialize a TextureManager:
     let mut texture_manager = TextureManager::new();
