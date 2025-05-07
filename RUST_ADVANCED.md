@@ -321,6 +321,10 @@ Macroquad applications with multiple screens can be organized using a modular ap
 #### Main Screen Manager (main.rs)
 
 ```rust
+mod modules {
+//all modules go in here for all screens
+
+}
 mod screen1;  // Import screen modules
 mod screen2;
 use macroquad::prelude::*;
