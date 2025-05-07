@@ -1,18 +1,18 @@
 /*
 Made by: Mathew Dusome
 May 3, 2025
-Program Details: Image object for displaying and manipulating images
+Program Details: Image module for displaying and manipulating images
 
 To import you need:
-In the mod objects section add:
-    pub mod images_obj;
+In the mod modules section add:
+    pub mod still_image;
     
 Then add the following with the use commands:
-use crate::objects::images_obj::ImageObject;
+use crate::modules::image_still::StillImage;
 
 Usage examples:
 1. Create a new image object:
-    let img = ImageObject::new(
+    let img = StillImage::new(
         "assets/image_name.png",
         100.0,  // width
         200.0,  // height
@@ -24,7 +24,7 @@ Usage examples:
 
 2. Create an empty image to load later:
     // Pass an empty string "" instead of a file path to create a cleared/empty image
-    let img = ImageObject::new(
+    let img = StillImage::new(
         "",     // Empty string creates a transparent image
         100.0,  // width
         200.0,  // height
@@ -38,7 +38,7 @@ Usage examples:
     img.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
 
 3. With custom stretch and zoom options:
-    let img_custom = ImageObject::new(
+    let img_custom = StillImage::new(
         "assets/image_name.png",
         100.0,
         200.0,
@@ -51,12 +51,12 @@ Usage examples:
 4. Using with TextureManager:
     // Since all textures are preloaded, you can directly pass the result of get_preload()
     // to set_preload() without intermediate variables:
-    image_obj.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
+    image_box.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
     
     // The unwrap() is safe because we know the texture was preloaded
 
 5. Clear an image (set to transparent):
-    image_obj.clear();
+    image_box.clear();
     
 6. Draw the image in your game loop:
     img.draw();
@@ -70,7 +70,7 @@ Additional functionality:
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 
-pub struct ImageObject {
+pub struct StillImage {
     texture: Texture2D,
     x: f32,
     y: f32,
@@ -82,8 +82,8 @@ pub struct ImageObject {
     filename: String, // Store the original filename/path
 }
 
-impl ImageObject {
-    // Constructor for ImageObject with asset path and x, y location
+impl StillImage {
+    // Constructor for StillImage with asset path and x, y location
     pub async fn new(
         asset_path: &str, 
         width: f32, 

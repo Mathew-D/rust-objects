@@ -3,11 +3,11 @@ Made by: Mathew Dusome
 April 27 2025
 
 Adds database functionality for both web and native platforms using a cloud-hosted database
-In the mod objects section add:
+In the mod modules section add:
     pub mod database;
     
 Then add the following with the use commands:
-use crate::objects::database::*;  // This imports all functions directly
+use crate::modules::database::*;  // This imports all functions directly
 
 To use this module, add these dependencies to your Cargo.toml file:
 

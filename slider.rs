@@ -3,11 +3,11 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds a slider UI component for numeric input
-In the mod objects section add:
+In the mod modules section add:
     pub mod slider;
     
 Then add the following with the use commands:
-use crate::objects::slider::Slider;
+use crate::modules::slider::Slider;
 
 Then to use this you would put the following above the loop: 
     // Create a basic slider (horizontal by default)

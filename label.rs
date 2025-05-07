@@ -3,12 +3,12 @@ Made by: Mathew Dusome
 May 2 2025
 To import you need:
 Adds a label object
-In the mod objects section add:
+In the mod modules section add:
         pub mod label;
     
 
 Add with the other use statements
-    use crate::objects::label::Label;
+    use crate::modules::label::Label;
 
 Then to use this you would put the following above the loop: 
     let lbl_out = Label::new("Hello\nWorld", 50.0, 100.0, 30);
@@ -33,8 +33,8 @@ You can set a fixed size for the label with:
 Where the values are width and height in pixels.
 
 You can also set the text alignment within a fixed-size label with:
-     lbl_out.with_alignment(objects::label::TextAlign::Center);
-Options are objects::label::TextAlign::Left, objects::label::TextAlign::Center, and objects::label::TextAlign::Right.
+     lbl_out.with_alignment(modules::label::TextAlign::Center);
+Options are modules::label::TextAlign::Left, objects::label::TextAlign::Center, and objects::label::TextAlign::Right.
 
 To access the label's position:
      let x = lbl_out.get_x();

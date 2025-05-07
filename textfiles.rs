@@ -16,11 +16,11 @@ For web support (WebAssembly) only:
 
         
 Used for Everything:
-    In the mod objects section add:
+    In the mod modules section add:
         pub mod textfiles;
         
     Add with the other use statements
-        use crate::objects::textfiles::TextFile;
+        use crate::modules::textfiles::TextFile;
 
  
 

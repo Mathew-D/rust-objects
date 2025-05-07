@@ -3,11 +3,11 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds an animated image object for sprite animations with GIF support
-In the mod objects section add:
+In the mod modules section add:
     pub mod animated_image;
     
 Then add the following with the use commands:
-use crate::objects::animated_image::AnimatedImage;
+use crate::modules::animated_image::AnimatedImage;
 
 GIF ANIMATION SUPPORT:
 This module now supports animated GIFs on both desktop and web platforms.
@@ -97,7 +97,7 @@ use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 
 #[derive(PartialEq)]
-#[allow(dead_code)]
+#[allow(unused)]
 pub enum AnimationState {
     Playing,
     Paused,
@@ -112,7 +112,7 @@ pub struct AnimatedImage {
     height: f32,
     transparency_mask: Vec<u8>,
     cols: usize,
-    #[allow(dead_code)]
+    #[allow(unused)]
     rows: usize,
     current_frame: usize,
     total_frames: usize,
@@ -168,7 +168,7 @@ impl AnimatedImage {
     }
     
     // Create from individual frames
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub async fn from_frames(
         frame_paths: Vec<&str>,
         x: f32,
@@ -596,19 +596,19 @@ impl AnimatedImage {
     // Animation control methods
     
     // Start or resume animation
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn play(&mut self) {
         self.state = AnimationState::Playing;
     }
     
     // Pause animation (maintains current frame)
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn pause(&mut self) {
         self.state = AnimationState::Paused;
     }
     
     // Stop animation (resets to first frame)
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn stop(&mut self) {
         self.state = AnimationState::Stopped;
         self.current_frame = 0;
@@ -616,7 +616,7 @@ impl AnimatedImage {
     }
     
     // Reset to first frame without changing state
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn reset(&mut self) {
         self.current_frame = 0;
         self.time_accumulated = 0.0;

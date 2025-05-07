@@ -3,12 +3,12 @@ Made by: Mathew Dusome
 May 2 2025
 Adds a text input object
 
-In the mod objects section add:
+In the mod modules section add:
         pub mod text_input;
 
 
 Add with the other use statements
-    use crate::objects::text_input::TextBox;
+    use crate::modules::text_input::TextBox;
 
 Then to use this you would put the following above the loop: 
     let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0, 50.0);

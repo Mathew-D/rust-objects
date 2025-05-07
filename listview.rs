@@ -3,15 +3,15 @@ Made by: Mathew Dusome
 April 26 2025
 
 Adds a list view widget
-In the mod objects section add:
+In the mod modules section add:
         pub mod listview;
 
 
 Add with the other use statements
-    use crate::objects::listview::ListView;
+    use crate::modules::listview::ListView;
 
 Then to use this you would put the following above the loop: 
-    let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
+    let list_items = vec!["Item 1".to_string(), "Item 2".to_string(), "Item 3".to_string(), "Item 4"].to_string();
     let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20);
 Where the numbers are x, y, font size
 
@@ -28,13 +28,13 @@ You can set visible items and enable scrolling with:
 
 List management functions:
     list_view.add_item("New Item")    - Add a single item to the list
-    list_view.add_items(&vec!["Item A", "Item B"])    - Add multiple items at once
+    list_view.add_items(&vec!["Item A".to_string(), "Item B".to_string()])    - Add multiple items at once
     list_view.clear()    - Remove all items from the list
     list_view.remove_item(index)    - Remove item at specific index
 
 Full Example:
    
-    let list_items = vec!["Item 1", "Item 2", "Item 3", "Item 4"];
+    let list_items = vec!["Item 1".to_string(), "Item 2".to_string(), "Item 3".to_string(), "Item 4"].to_string();
     let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20);
     list_view.with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
              .with_spacing(1.5)
@@ -44,7 +44,7 @@ Full Example:
     // list_items can still be used here since ListView::new() takes a reference
     
     // Adding more items (note the & reference)
-    let more_items = vec!["Item 5", "Item 6"];
+    let more_items = vec!["Item 5".to_string(), "Item 6".to_string()];
     list_view.add_items(&more_items);
     // more_items can still be used here
 

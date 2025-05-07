@@ -3,11 +3,11 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds a message box (dialog) component for displaying messages and options to users
-In the mod objects section add:
+In the mod modules section add:
     pub mod messagebox;
     
 Then add the following with the use commands:
-use crate::objects::messagebox::{MessageBox, MessageBoxResult};
+use crate::modules::messagebox::{MessageBox, MessageBoxResult};
 
 Then to use this you would put the following above the loop: 
     // Create a simple message box with OK button

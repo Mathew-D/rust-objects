@@ -3,11 +3,11 @@ Made by: Mathew Dusome
 May 5 2025
 To import you need:
 Adds a button object
-In the mod objects section add:
+In the mod modules section add:
     pub mod txt_buttons;
 
 Then with the other use commands add:
-use crate::objects::txt_buttons::TextButton;
+use crate::modules::txt_buttons::TextButton;
 
 Then above the loop section to use you would go:
    

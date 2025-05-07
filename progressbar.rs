@@ -3,11 +3,11 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds a progress bar component for displaying completion status
-In the mod objects section add:
+In the mod modules section add:
     pub mod progressbar;
     
 Then add the following with the use commands:
-use crate::objects::progressbar::ProgressBar;
+use crate::modules::progressbar::ProgressBar;
 
 Then to use this you would put the following above the loop: 
     // Create a basic horizontal progress bar

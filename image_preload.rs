@@ -4,11 +4,11 @@ Date: 2025-05-03
 Program Details: Central texture manager for preloading and sharing textures
 
 To use this:
-1. In the mod objects section add:
+1. In the mod modules section add:
     pub mod image_preload;
     
 2. Add the following use command:
-    use crate::objects::image_preload::TextureManager;
+    use crate::modules::image_preload::TextureManager;
 
 3. Create and initialize a TextureManager:
     let mut texture_manager = TextureManager::new();
@@ -65,7 +65,7 @@ Note: For clearing images, use the clear() method directly on the ImageObject:
 */
 use macroquad::texture::Texture2D;
 use std::collections::HashMap;
-use crate::objects::images_obj::set_texture_main;
+use crate::modules::StillImage::set_texture_main;
 
 /// A central texture manager to preload and share textures
 /// This reduces memory usage and prevents flickering when switching images

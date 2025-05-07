@@ -4,11 +4,11 @@ Feb 6 2025
 Add a grid object for placement
 To import you need:
 
-In the mod objects section add:
+In the mod modules section add:
     pub mod grid;
     
 Then add the following with the use commands:
-use crate::objects::grid::draw_grid;
+use crate::modules::grid::draw_grid;
 
 Then in side the loop I would use:
     draw_grid(50.0, BROWN);
