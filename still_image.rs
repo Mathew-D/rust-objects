@@ -8,7 +8,7 @@ In the mod modules section add:
     pub mod still_image;
     
 Then add the following with the use commands:
-use crate::modules::image_still::StillImage;
+use crate::modules::still_image::StillImage;
 
 Usage examples:
 1. Create a new image object:
@@ -51,12 +51,12 @@ Usage examples:
 4. Using with TextureManager:
     // Since all textures are preloaded, you can directly pass the result of get_preload()
     // to set_preload() without intermediate variables:
-    image_box.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
+    img.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
     
     // The unwrap() is safe because we know the texture was preloaded
 
 5. Clear an image (set to transparent):
-    image_box.clear();
+    img.clear();
     
 6. Draw the image in your game loop:
     img.draw();
