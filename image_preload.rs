@@ -65,7 +65,7 @@ Note: For clearing images, use the clear() method directly on the ImageObject:
 */
 use macroquad::texture::Texture2D;
 use std::collections::HashMap;
-use crate::modules::StillImage::set_texture_main;
+use crate::modules::still_image::set_texture_main;
 
 /// A central texture manager to preload and share textures
 /// This reduces memory usage and prevents flickering when switching images
