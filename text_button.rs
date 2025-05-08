@@ -5,14 +5,16 @@ To import you need:
 Adds a button object
 
 In your mod.rs file located in the modules folder add the following to the end of the file:
-    pub mod button_text;
+    pub mod text_button;
 
 Then with the other use commands add:
-use crate::modules::button_text::ButtonText;
+use crate::modules::text_button::TextButton;
+
+Then add the following to the top of your file:
 
 Then above the loop section to use you would go:
    
-    let btn_text = ButtonText::new(
+    let btn_text = TextButton::new(
         100.0,
         200.0,
         200.0,
@@ -62,7 +64,7 @@ only the text area is clickable, not the entire button area.
 use macroquad::prelude::*;
 
 // Custom struct for ButtonText
-pub struct ButtonText {
+pub struct TextButton {
     x: f32,              // Now private
     y: f32,              // Now private
     pub width: f32,
@@ -87,7 +89,7 @@ pub struct ButtonText {
     cached_rect: Rect,
 }
 
-impl ButtonText {
+impl TextButton {
     pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, font_size: u16) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);

@@ -5,10 +5,10 @@ To import you need:
 Adds an animated image object for sprite animations with GIF support
 
 In the mod modules section located in the modules folder add the following to the end :
-    pub mod animated_image;
+    pub mod image_animated;
     
 Then add the following with the use commands:
-use crate::modules::animated_image::AnimatedImage;
+use crate::modules::image_animated::ImageAnimated;
 
 GIF ANIMATION SUPPORT:
 This module now supports animated GIFs on both desktop and web platforms.
@@ -18,7 +18,7 @@ gif = "0.13"
 
 Then to use this you would put the following above the loop: 
     // Create with a single spritesheet
-    let mut animated_sprite = AnimatedImage::new(
+    let mut animated_sprite = ImageAnimated::new(
         "assets/character_spritesheet.png", 
         100.0, 100.0,                      
         64.0, 64.0,                        
@@ -37,7 +37,7 @@ Then to use this you would put the following above the loop:
 
 
     // Or create with individual frames
-    let mut animated_sprite2 = AnimatedImage::from_frames(
+    let mut animated_sprite2 = ImageAnimated::from_frames(
         vec![
             "assets/frame1.png",
             "assets/frame2.png",
@@ -57,7 +57,7 @@ Then to use this you would put the following above the loop:
 
 
     // Or load directly from a GIF file (works on both web and native platforms)
-    let mut gif_sprite = AnimatedImage::from_gif(
+    let mut gif_sprite = ImageAnimated::from_gif(
         "assets/animation.gif", 
         300.0, 100.0,          
         128.0, 128.0,          
@@ -105,7 +105,7 @@ pub enum AnimationState {
     Stopped,
 }
 
-pub struct AnimatedImage {
+pub struct ImageAnimated {
     texture: Texture2D,
     x: f32,
     y: f32,
@@ -127,7 +127,7 @@ pub struct AnimatedImage {
     last_update: f32, // Store the last update time
 }
 
-impl AnimatedImage {
+impl ImageAnimated {
     // Create from a spritesheet (grid of frames)
     pub async fn new(
         spritesheet_path: &str,
