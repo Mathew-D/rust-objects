@@ -11,7 +11,7 @@ Add with the other use statements
     use crate::modules::text_input::TextInput;
 
 Then to use this you would put the following above the loop: 
-    let mut txt_input = TextInput::new(100.0, 100.0, 300.0, 40.0, 50.0);
+    let mut txt_input = TextInput::new(100.0, 100.0, 300.0, 40.0, 25.0);
 Where the parameters are x, y, width, height, font size
 
 You can customize the text box using various methods:
