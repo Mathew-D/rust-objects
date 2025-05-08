@@ -6,14 +6,14 @@ Program Details: Image module for displaying and manipulating images
 To import you need:
 
 In your mod.rs file located in the modules folder add the following to the end of the file
-    pub mod image_still;
+    pub mod still_image;
     
 Then add the following with the use commands:
-use crate::modules::image_still::ImageStill;
+use crate::modules::still_image::StillImage;
 
 Usage examples:
 1. Create a new image object:
-    let img = ImageStill::new(
+    let img = StillImage::new(
         "assets/image_name.png",
         100.0,  // width
         200.0,  // height
@@ -25,7 +25,7 @@ Usage examples:
 
 2. Create an empty image to load later:
     // Pass an empty string "" instead of a file path to create a cleared/empty image
-    let img = ImageStill::new(
+    let img = StillImage::new(
         "",     // Empty string creates a transparent image
         100.0,  // width
         200.0,  // height
@@ -39,7 +39,7 @@ Usage examples:
     img.set_preload(texture_manager.get_preload("assets/image1.png").unwrap());
 
 3. With custom stretch and zoom options:
-    let img_custom = ImageStill::new(
+    let img_custom = StillImage::new(
         "assets/image_name.png",
         100.0,
         200.0,
@@ -71,7 +71,7 @@ Additional functionality:
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 
-pub struct ImageStill {
+pub struct StillImage {
     texture: Texture2D,
     x: f32,
     y: f32,
@@ -83,7 +83,7 @@ pub struct ImageStill {
     filename: String, // Store the original filename/path
 }
 
-impl ImageStill {
+impl StillImage {
     // Constructor for ImageStill with asset path and x, y location
     pub async fn new(
         asset_path: &str, 

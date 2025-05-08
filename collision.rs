@@ -27,14 +27,14 @@ Then in the loop you would use the follow to check if two images hit:
     }
 */
 
-use crate::modules::image_still::ImageStill;
+use crate::modules::still_image::StillImage;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
 pub fn check_collision(
-    img1: &ImageStill,
-    img2: &ImageStill,
+    img1: &StillImage,
+    img2: &StillImage,
     skip_pixels: usize
 ) -> bool {
     let pos1 = img1.pos();
