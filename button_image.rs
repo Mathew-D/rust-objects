@@ -3,15 +3,16 @@ Made by: Mathew Dusome
 Feb 6 2025
 To import you need:
 Adds a button object 
-In the mod modules section add:
-    pub mod img_button;
+
+In your mod.rs file located in the modules folder add the following to the end of the file:
+    pub mod button_image;
 
 Then add the following with the use commands:
 
-use crate::modules::img_button::ImageButton;
+use crate::modules::button_image::ButtonImage;
 
 Then to use this you would put the following above the loop: 
-    let img_button = ImageButton::new(
+    let btn_image = ButtonImage::new(
         100.0,
         200.0,
         200.0,
@@ -21,7 +22,7 @@ Then to use this you would put the following above the loop:
     ).await;
 
 Then in side the loop you would use:
-if img_button.click() {
+if btn_image.click() {
 
 }
 */
@@ -29,7 +30,7 @@ if img_button.click() {
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 
-pub struct ImageButton {
+pub struct ButtonImage {
     pub x: f32,
     pub y: f32,
     pub width: f32,
@@ -42,7 +43,7 @@ pub struct ImageButton {
     tex_height: usize,
 }
 
-impl ImageButton {
+impl ButtonImage {
     pub async fn new(x: f32, y: f32, width: f32, height: f32, texture_path: &str, hover_texture_path: &str) -> Self {
        
         let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;

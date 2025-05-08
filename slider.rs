@@ -3,7 +3,8 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds a slider UI component for numeric input
-In the mod modules section add:
+
+In your mod.rs file located in the modules folder add the following to the end of the file
     pub mod slider;
     
 Then add the following with the use commands:

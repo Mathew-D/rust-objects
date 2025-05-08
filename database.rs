@@ -3,7 +3,8 @@ Made by: Mathew Dusome
 April 27 2025
 
 Adds database functionality for both web and native platforms using a cloud-hosted database
-In the mod modules section add:
+
+In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod database;
     
 Then add the following with the use commands:

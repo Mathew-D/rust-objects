@@ -12,7 +12,7 @@ native = ["rayon"]    # The "native" feature enables Rayon
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = "1.7"  # Rayon is only included for native builds
 
-In the mod modules section add:
+In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod collision;
 Then in with the other use command add:
 

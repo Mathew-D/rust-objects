@@ -4,7 +4,7 @@ Date: 2025-05-03
 Program Details: Central texture manager for preloading and sharing textures
 
 To use this:
-1. In the mod modules section add:
+1. In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod image_preload;
     
 2. Add the following use command:

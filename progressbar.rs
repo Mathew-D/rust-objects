@@ -3,7 +3,8 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds a progress bar component for displaying completion status
-In the mod modules section add:
+
+In your mod.rs file located in the modules folder add the following to the end of the file
     pub mod progressbar;
     
 Then add the following with the use commands:

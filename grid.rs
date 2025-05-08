@@ -4,7 +4,7 @@ Feb 6 2025
 Add a grid object for placement
 To import you need:
 
-In the mod modules section add:
+In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod grid;
     
 Then add the following with the use commands:

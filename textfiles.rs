@@ -16,7 +16,8 @@ For web support (WebAssembly) only:
 
         
 Used for Everything:
-    In the mod modules section add:
+
+    In your mod.rs file located in the modules folder add the following to the end of the file
         pub mod textfiles;
         
     Add with the other use statements

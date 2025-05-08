@@ -3,15 +3,16 @@ Made by: Mathew Dusome
 May 5 2025
 To import you need:
 Adds a button object
-In the mod modules section add:
-    pub mod txt_buttons;
+
+In your mod.rs file located in the modules folder add the following to the end of the file:
+    pub mod button_text;
 
 Then with the other use commands add:
-use crate::modules::txt_buttons::TextButton;
+use crate::modules::button_text::ButtonText;
 
 Then above the loop section to use you would go:
    
-    let text_button = TextButton::new(
+    let btn_text = ButtonText::new(
         100.0,
         200.0,
         200.0,
@@ -23,35 +24,35 @@ Then above the loop section to use you would go:
     );
 
 You can customize the text colors with:
-    text_button.with_text_color(WHITE);        // Sets the normal text color
-    text_button.with_hover_text_color(YELLOW); // Sets the text color when hovering
+    btn_text.with_text_color(WHITE);        // Sets the normal text color
+    btn_text.with_hover_text_color(YELLOW); // Sets the text color when hovering
 
 You can also specify a custom font with:
-    text_button.with_font(my_font.clone());
+    btn_text.with_font(my_font.clone());
 Otherwise the default system font will be used.
 
 You can add rounded corners to the button with:
-    text_button.with_round(10.0);
+    btn_text.with_round(10.0);
 Where the value is the corner radius in pixels.
 
 You can add a border to the button with:
-    text_button.with_border(RED, 2.0);
+    btn_text.with_border(RED, 2.0);
 Where the first value is the border color and the second is the thickness.
 
 To access the button's position:
-    let x = text_button.get_x();
-    let y = text_button.get_y();
-    let position = text_button.get_position(); // Returns a Vec2 with both x and y
+    let x = btn_text.get_x();
+    let y = btn_text.get_y();
+    let position = btn_text.get_position(); // Returns a Vec2 with both x and y
 
 To change the button's position:
-    text_button.update_position(150.0, 250.0, None, None);
+    btn_text.update_position(150.0, 250.0, None, None);
 Where the first two values are x and y positions, and the optional values are for width and height.
 
 To change the button's text:
-    text_button.set_text("New Text");
+    btn_text.set_text("New Text");
 
 Then in the loop you would use:
-if text_button.click() {
+if btn_text.click() {
 
 }
 
@@ -60,8 +61,8 @@ only the text area is clickable, not the entire button area.
 */
 use macroquad::prelude::*;
 
-// Custom struct for TextButton
-pub struct TextButton {
+// Custom struct for ButtonText
+pub struct ButtonText {
     x: f32,              // Now private
     y: f32,              // Now private
     pub width: f32,
@@ -86,7 +87,7 @@ pub struct TextButton {
     cached_rect: Rect,
 }
 
-impl TextButton {
+impl ButtonText {
     pub fn new(x: f32, y: f32, width: f32, height: f32, text: impl Into<String>, normal_color: Color, hover_color: Color, font_size: u16) -> Self {
         let enabled = true;
         let off_color = lerp_color(normal_color, GRAY, 0.5);

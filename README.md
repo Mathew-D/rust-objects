@@ -1,14 +1,14 @@
 # A Collection of UI and Graphics Components for Macroquad
 
-A Custom group of objects to use in macroquad rust program. The goal is they can be added to any program to add extra functions quickly. 
+A Custom group of modules to use in macroquad rust program. The goal is they can be added to any program to add extra functions quickly. 
 This is used with my VS Code extension: 
 **https://github.com/Mathew-D/vs_code_rust**
 
 ## Components
 
 ### Buttons
-- **ImageButton** (`buttons_image.rs`): Creates customizable image-based buttons with hover effects. Supports transparency detection for pixel-perfect clicking.
-- **TextButton** (`buttons_text.rs`): Creates text-based buttons with customizable colors, hover effects, and enabled/disabled states.
+- **ImageButton** (`img_button.rs`): Creates customizable image-based buttons with hover effects. Supports transparency detection for pixel-perfect clicking.
+- **TextButton** (`txt_button.rs`): Creates text-based buttons with customizable colors, hover effects, and enabled/disabled states.
 
 ### UI Elements
 - **Label** (`label.rs`): A text display component with support for multiline text, customizable colors, and optional background.
@@ -30,7 +30,7 @@ This is used with my VS Code extension:
   - Smooth animations for value changes
 
 ### Graphics and Layout
-- **ImageObject** (`images_obj.rs`): Basic image display with support for scaling and positioning. Creates transparency masks for collision detection.
+- **StillImage** (`still_image.rs`): Basic image display with support for scaling and positioning. Creates transparency masks for collision detection.
 - **AnimatedImage** (`animated_image.rs`): Versatile animation component with three creation methods:
   - Spritesheet-based animations (grid of frames in one image)
   - Frame-by-frame animations (sequence of individual image files)

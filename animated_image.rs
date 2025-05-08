@@ -3,7 +3,8 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds an animated image object for sprite animations with GIF support
-In the mod modules section add:
+
+In the mod modules section located in the modules folder add the following to the end :
     pub mod animated_image;
     
 Then add the following with the use commands:

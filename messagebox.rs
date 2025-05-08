@@ -3,7 +3,8 @@ Made by: Mathew Dusome
 April 26 2025
 To import you need:
 Adds a message box (dialog) component for displaying messages and options to users
-In the mod modules section add:
+
+In your mod.rs file located in the modules folder add the following to the end of the file
     pub mod messagebox;
     
 Then add the following with the use commands:

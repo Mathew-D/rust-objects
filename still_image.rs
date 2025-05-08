@@ -4,7 +4,8 @@ May 3, 2025
 Program Details: Image module for displaying and manipulating images
 
 To import you need:
-In the mod modules section add:
+
+In your mod.rs file located in the modules folder add the following to the end of the file
     pub mod still_image;
     
 Then add the following with the use commands:

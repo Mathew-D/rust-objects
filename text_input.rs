@@ -3,7 +3,7 @@ Made by: Mathew Dusome
 May 2 2025
 Adds a text input object
 
-In the mod modules section add:
+In your mod.rs file located in the modules folder add the following to the end of the file
         pub mod text_input;
 
 
