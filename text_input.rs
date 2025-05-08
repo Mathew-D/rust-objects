@@ -8,53 +8,53 @@ In your mod.rs file located in the modules folder add the following to the end o
 
 
 Add with the other use statements
-    use crate::modules::text_input::TextBox;
+    use crate::modules::text_input::TextInput;
 
 Then to use this you would put the following above the loop: 
-    let mut textbox = TextBox::new(100.0, 100.0, 300.0, 40.0, 50.0);
+    let mut txt_input = TextInput::new(100.0, 100.0, 300.0, 40.0, 50.0);
 Where the parameters are x, y, width, height, font size
 
 You can customize the text box using various methods:
 
 APPEARANCE CUSTOMIZATION:
     // Set colors (text, border, background, cursor)
-    textbox.with_colors(WHITE, BLUE, DARKGRAY, RED);
+    txt_input.with_colors(WHITE, BLUE, DARKGRAY, RED);
     
     // Set individual colors
-    textbox.set_text_color(WHITE)
+    txt_input.set_text_color(WHITE)
           .set_border_color(BLUE)
           .set_background_color(DARKGRAY)
           .set_cursor_color(RED);
     
     // Set custom font
-    textbox.with_font(my_font.clone());
+    txt_input.with_font(my_font.clone());
     
     // Change position and dimensions
-    textbox.set_position(150.0, 150.0);
-    textbox.set_dimensions(250.0, 50.0);
+    txt_input.set_position(150.0, 150.0);
+    txt_input.set_dimensions(250.0, 50.0);
     
 TEXT MANIPULATION:
     // Get current text
-    let current_text = textbox.get_text();
+    let current_text = txt_input.get_text();
     
     // Set text content
-    textbox.set_text("Hello World");
+    txt_input.set_text("Hello World");
     
     // Check active state
-    if textbox.is_active() {
+    if txt_input.is_active() {
         // Do something when textbox is active
     }
     
     // Set cursor position
-    textbox.set_cursor_index(5);
+    txt_input.set_cursor_index(5);
 
 Then in the main loop you would use:
     // Update and draw the textbox in one step
-    textbox.draw();
+    txt_input.draw();
 */
 use macroquad::prelude::*;
 
-pub struct TextBox {
+pub struct TextInput {
     // Make all fields private for complete encapsulation
     x: f32,
     y: f32,
@@ -73,7 +73,7 @@ pub struct TextBox {
     font: Option<Font>,
 }
 
-impl TextBox {
+impl TextInput {
     pub fn new(x: f32, y: f32, width: f32, height: f32, font_size: f32) -> Self {
         Self {
             x,
