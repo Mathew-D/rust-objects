@@ -87,7 +87,7 @@ pub struct TextButton {
     cached_text_width: f32,
     cached_text_position: Vec2,
     cached_rect: Rect,
-    visuable: bool,
+    pub visuable: bool,
 }
 
 impl TextButton {
@@ -126,7 +126,7 @@ impl TextButton {
             cached_text_width,
             cached_text_position,
             cached_rect,
-            pub visuable: true,
+            visuable: true,
         }
     }
 
