@@ -106,10 +106,40 @@ impl ImageButton {
 }
 
 // ✅ Works for Web and Native by loading the image as raw bytes
-async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u8> {
+async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
+    
+    // Check if the image format has an alpha channel at all (RGBA)
+    // If pixels length isn't divisible by 4, it's not RGBA format
+    if pixels.len() != width * height * 4 {
+        // No alpha channel, return None immediately
+        return None;
+    }
 
+    // First, check if the image has any transparency at all
+    let mut has_transparency = false;
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 4; // Each pixel is 4 bytes (RGBA)
+            let alpha = pixels[idx + 3]; // Get alpha channel
+            
+            if alpha < 255 {
+                has_transparency = true;
+                break;
+            }
+        }
+        if has_transparency {
+            break;
+        }
+    }
+
+    // If there's no transparency, return None (no mask needed)
+    if !has_transparency {
+        return None;
+    }
+
+    // Image has transparency, create the transparency mask
     let mut mask = vec![0; (width * height + 7) / 8]; // One byte per 8 pixels
 
     for y in 0..height {
@@ -126,13 +156,23 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u
         }
     }
 
-    mask
+    Some(mask)
 }
+
 pub async fn set_texture(texture_path: &str) -> (Texture2D, Vec<u8>, usize, usize) {
     let texture = load_texture(texture_path).await.unwrap();
     texture.set_filter(FilterMode::Linear);
     let tex_width = texture.width() as usize;
     let tex_height = texture.height() as usize;
-    let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await;
+    
+    // Generate transparency mask or create a default fully opaque mask if none
+    let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await
+        .unwrap_or_else(|| {
+            // If no transparency is detected, create a fully opaque mask
+            // (all bits set to 1, meaning every pixel is clickable)
+            let mask_size = (tex_width * tex_height + 7) / 8;
+            vec![0xFF; mask_size] // 0xFF means all bits are 1 (fully opaque)
+        });
+        
     return (texture, transparency_mask, tex_width, tex_height);
 }
