@@ -126,7 +126,7 @@ impl TextButton {
             cached_text_width,
             cached_text_position,
             cached_rect,
-            visuable: true,
+            pub visuable: true,
         }
     }
 

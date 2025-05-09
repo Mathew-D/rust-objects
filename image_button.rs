@@ -41,7 +41,7 @@ pub struct ImageButton {
     transparency_mask: Vec<u8>, // Stores transparency data
     tex_width: usize,
     tex_height: usize,
-    visible: bool,
+    pub visible: bool,
 }
 
 impl ImageButton {
