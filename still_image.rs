@@ -77,7 +77,7 @@ pub struct StillImage {
     y: f32,
     width: f32,
     height: f32,
-    transparency_mask: Vec<u8>, // Now storing raw transparency data (bitmask)
+    transparency_mask: Option<Vec<u8>>, // Changed to Option<Vec<u8>> to make it optional
     stretch_enabled: bool, // Flag to control image stretching
     zoom_level: f32, // Zoom factor to scale the image
     filename: String, // Store the original filename/path
@@ -98,7 +98,7 @@ impl StillImage {
         if asset_path.is_empty() {
             // Create an empty/clear image
             let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
-            let empty_mask = vec![0]; // Single transparent pixel
+            let empty_mask = Some(vec![0]); // Single transparent pixel
             
             return Self { 
                 x, 
@@ -182,7 +182,16 @@ impl StillImage {
     // Get the transparency mask (bitmask)
     #[allow(unused)]
     pub fn get_mask(&self) -> Vec<u8> {
-        return self.transparency_mask.clone();
+        match &self.transparency_mask {
+            Some(mask) => mask.clone(),
+            None => {
+                // If there's no mask (image has no transparency), create a fully opaque mask
+                let tex_width = self.texture.width() as usize;
+                let tex_height = self.texture.height() as usize;
+                let mask_size = (tex_width * tex_height + 7) / 8;
+                vec![0xFF; mask_size] // 0xFF means all bits are 1 (fully opaque)
+            }
+        }
     }
     #[allow(unused)]
     pub async fn set_texture(&mut self, texture_path: &str) {
@@ -264,7 +273,7 @@ impl StillImage {
     
     // Public method for setting a preloaded texture that accepts the tuple directly
     #[allow(unused)]
-    pub fn set_preload(&mut self, preloaded: (Texture2D, Vec<u8>, String)) {
+    pub fn set_preload(&mut self, preloaded: (Texture2D, Option<Vec<u8>>, String)) {
         let (texture, mask, filename) = preloaded;
         self.texture = texture;
         self.transparency_mask = mask;
@@ -276,7 +285,7 @@ impl StillImage {
     pub fn clear(&mut self) {
         // Create a 1x1 transparent pixel texture
         let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
-        let empty_mask = vec![0]; // Single transparent pixel
+        let empty_mask = Some(vec![0]); // Single transparent pixel
         
         // Update the image object with this empty texture
         self.texture = empty_texture;
@@ -285,12 +294,35 @@ impl StillImage {
     }
 }
 
-async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u8> {
+async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
 
     let mut mask = vec![0; (width * height + 7) / 8]; // Create a bitmask with enough bytes
+    let mut has_transparency = false;
 
+    // First, scan to see if the image has any transparency at all
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 4; // Each pixel is 4 bytes (RGBA)
+            let alpha = pixels[idx + 3]; // Get alpha channel
+            
+            if alpha < 255 {
+                has_transparency = true;
+                break;
+            }
+        }
+        if has_transparency {
+            break;
+        }
+    }
+
+    // If there's no transparency, return None
+    if !has_transparency {
+        return None;
+    }
+
+    // Otherwise, create the transparency mask
     for y in 0..height {
         for x in 0..width {
             let idx = (y * width + x) * 4; // Each pixel is 4 bytes (RGBA)
@@ -308,9 +340,10 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u
         }
     }
 
-    mask
+    Some(mask)
 }
-pub async fn set_texture_main(texture_path: &str) -> (Texture2D, Vec<u8>) {
+
+pub async fn set_texture_main(texture_path: &str) -> (Texture2D, Option<Vec<u8>>) {
     let texture = load_texture(texture_path).await.unwrap();
     texture.set_filter(FilterMode::Linear);
     let tex_width = texture.width() as usize;

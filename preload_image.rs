@@ -70,7 +70,7 @@ use crate::modules::still_image::set_texture_main;
 /// A central texture manager to preload and share textures
 /// This reduces memory usage and prevents flickering when switching images
 pub struct TextureManager {
-    textures: HashMap<String, (Texture2D, Vec<u8>)>,
+    textures: HashMap<String, (Texture2D, Option<Vec<u8>>)>,
     load_order: Vec<String>, // Store just the order textures were loaded in
 }
 
@@ -102,7 +102,7 @@ impl TextureManager {
     
     /// Get a preloaded texture for use in an ImageObject
     #[allow(unused)]
-    pub fn get_preload(&self, path: &str) -> Option<(Texture2D, Vec<u8>, String)> {
+    pub fn get_preload(&self, path: &str) -> Option<(Texture2D, Option<Vec<u8>>, String)> {
         self.textures.get(path).map(|(texture, mask)| 
             (texture.clone(), mask.clone(), path.to_string())
         )
@@ -110,7 +110,7 @@ impl TextureManager {
     
     /// Get a preloaded texture by its index in the preload order
     #[allow(unused)]
-    pub fn get_preload_by_index(&self, index: usize) -> Option<(Texture2D, Vec<u8>, String)> {
+    pub fn get_preload_by_index(&self, index: usize) -> Option<(Texture2D, Option<Vec<u8>>, String)> {
         if index < self.load_order.len() {
             let path = &self.load_order[index];
             self.get_preload(path)
