@@ -87,6 +87,7 @@ pub struct TextButton {
     cached_text_width: f32,
     cached_text_position: Vec2,
     cached_rect: Rect,
+    visuable: bool,
 }
 
 impl TextButton {
@@ -125,6 +126,7 @@ impl TextButton {
             cached_text_width,
             cached_text_position,
             cached_rect,
+            visuable: true,
         }
     }
 
@@ -249,6 +251,9 @@ impl TextButton {
     }
 
     pub fn click(&self) -> bool {
+        if !self.visuable {
+            return false; // If not visible, don't process clicks
+        }
         // Get mouse position
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_pos = Vec2::new(mouse_x, mouse_y);

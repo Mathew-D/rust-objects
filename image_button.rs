@@ -41,6 +41,7 @@ pub struct ImageButton {
     transparency_mask: Vec<u8>, // Stores transparency data
     tex_width: usize,
     tex_height: usize,
+    visible: bool,
 }
 
 impl ImageButton {
@@ -51,10 +52,13 @@ impl ImageButton {
         let hover_texture = load_texture(hover_texture_path).await.unwrap();
         let enabled = true;
         hover_texture.set_filter(FilterMode::Linear);
-        Self { x, y, width, height, enabled,texture, hover_texture, transparency_mask, tex_width, tex_height }
+        Self { x, y, width, height, enabled,texture, hover_texture, transparency_mask, tex_width, tex_height, visible: true }
     }
    
     pub fn click(&self) -> bool {
+        if !self.visible {
+            return false; // If the button is not visible, don't process clicks
+        }
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_pos = Vec2::new(mouse_x, mouse_y);
 
