@@ -173,6 +173,28 @@ impl StillImage {
         self.y = pos[1];
     }
 
+    // Get and set x position
+    #[allow(unused)]
+    pub fn get_x(&self) -> f32 {
+        self.x
+    }
+
+    #[allow(unused)]
+    pub fn set_x(&mut self, x: f32) {
+        self.x = x;
+    }
+
+    // Get and set y position
+    #[allow(unused)]
+    pub fn get_y(&self) -> f32 {
+        self.y
+    }
+
+    #[allow(unused)]
+    pub fn set_y(&mut self, y: f32) {
+        self.y = y;
+    }
+
     // Get the original filename/path of the loaded image
     #[allow(unused)]
     pub fn get_filename(&self) -> &str {

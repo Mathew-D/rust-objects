@@ -111,7 +111,7 @@ pub struct AnimatedImage {
     y: f32,
     width: f32,
     height: f32,
-    transparency_mask: Vec<u8>,
+    transparency_mask: Option<Vec<u8>>, // Changed to Option<Vec<u8>> to be consistent with StillImage
     cols: usize,
     #[allow(unused)]
     rows: usize,
@@ -152,7 +152,7 @@ impl AnimatedImage {
             y,
             width,
             height,
-            transparency_mask,
+            transparency_mask: Some(transparency_mask),
             cols,
             rows,
             current_frame: 0,
@@ -255,7 +255,7 @@ impl AnimatedImage {
             y,
             width,
             height,
-            transparency_mask,
+            transparency_mask: Some(transparency_mask),
             cols: frames,
             rows: 1,
             current_frame: 0,
@@ -368,7 +368,7 @@ impl AnimatedImage {
                         y,
                         width,
                         height,
-                        transparency_mask,
+                        transparency_mask: Some(transparency_mask),
                         cols: frame_count,
                         rows: 1,
                         current_frame: 0,
@@ -512,7 +512,7 @@ impl AnimatedImage {
             y,
             width,
             height,
-            transparency_mask: vec![0],
+            transparency_mask: None,
             cols: 1,
             rows: 1,
             current_frame: 0,
@@ -669,6 +669,28 @@ impl AnimatedImage {
         self.y = y;
     }
     
+    // Get and set x position
+    #[allow(unused)]
+    pub fn get_x(&self) -> f32 {
+        self.x
+    }
+
+    #[allow(unused)]
+    pub fn set_x(&mut self, x: f32) {
+        self.x = x;
+    }
+
+    // Get and set y position
+    #[allow(unused)]
+    pub fn get_y(&self) -> f32 {
+        self.y
+    }
+
+    #[allow(unused)]
+    pub fn set_y(&mut self, y: f32) {
+        self.y = y;
+    }
+    
     // Set size
     #[allow(unused)]
     pub fn set_size(&mut self, width: f32, height: f32) {
@@ -704,18 +726,48 @@ impl AnimatedImage {
     
     // Get transparency mask for collision detection
     #[allow(unused)]
-    pub fn get_mask(&self) -> Vec<u8> {
+    pub fn get_mask(&self) -> Option<Vec<u8>> {
         self.transparency_mask.clone()
     }
 }
 
 // Generate transparency mask for collision detection
-async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u8> {
+async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
+    
+    // Check if the image format has an alpha channel at all (RGBA)
+    // If pixels length isn't divisible by 4, it's not RGBA format
+    if pixels.len() != width * height * 4 {
+        // No alpha channel, return None immediately
+        return None;
+    }
 
     let mut mask = vec![0; (width * height + 7) / 8]; // Create a bitmask with enough bytes
+    let mut has_transparency = false;
 
+    // First, scan to see if the image has any transparency at all
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 4; // Each pixel is 4 bytes (RGBA)
+            let alpha = pixels[idx + 3]; // Get alpha channel
+            
+            if alpha < 255 {
+                has_transparency = true;
+                break;
+            }
+        }
+        if has_transparency {
+            break;
+        }
+    }
+
+    // If there's no transparency, return None
+    if !has_transparency {
+        return None;
+    }
+
+    // Otherwise, create the transparency mask
     for y in 0..height {
         for x in 0..width {
             let idx = (y * width + x) * 4; // Each pixel is 4 bytes (RGBA)
@@ -733,10 +785,10 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Vec<u
         }
     }
 
-    mask
+    Some(mask)
 }
 
-async fn set_texture(texture_path: &str) -> (Texture2D, Vec<u8>) {
+async fn set_texture(texture_path: &str) -> (Texture2D, Option<Vec<u8>>) {
     let texture = load_texture(texture_path).await.unwrap();
     texture.set_filter(FilterMode::Nearest); // Better for pixel art
     let tex_width = texture.width() as usize;
