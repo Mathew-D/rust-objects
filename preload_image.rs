@@ -28,7 +28,7 @@ To use this:
    
    // Approach 2: Using if let Some() - Safer, handles missing textures gracefully
    if let Some(preloaded) = texture_manager.get_preload("assets/image2.png") {
-       image_obj.set_preload(preloaded);
+       img.set_preload(preloaded);
    } else {
        println!("Warning: Image not found in texture manager");
        // Handle the error case (e.g., try to load it or use a placeholder)
@@ -36,11 +36,11 @@ To use this:
     
 6. Access textures by index:
     // Using unwrap() approach:
-    image_obj.set_preload(texture_manager.get_preload_by_index(0).unwrap());
+    img.set_preload(texture_manager.get_preload_by_index(0).unwrap());
     
     // Using if let Some() approach:
     if let Some(preloaded) = texture_manager.get_preload_by_index(1) {
-        image_obj.set_preload(preloaded);
+        img.set_preload(preloaded);
     }
     
 7. Getting the number of preloaded textures:
@@ -51,17 +51,17 @@ To use this:
     current_index = (current_index + 1) % texture_manager.texture_count();
     
     // Using unwrap() (assumes there are textures available):
-    image_obj.set_preload(texture_manager.get_preload_by_index(current_index).unwrap());
+    img.set_preload(texture_manager.get_preload_by_index(current_index).unwrap());
     
     // Or more safely with error handling:
     if texture_manager.texture_count() > 0 {
         if let Some(preloaded) = texture_manager.get_preload_by_index(current_index) {
-            image_obj.set_preload(preloaded);
+            img.set_preload(preloaded);
         }
     }
 
 Note: For clearing images, use the clear() method directly on the ImageObject:
-    image_obj.clear();
+    img.clear();
 */
 use macroquad::texture::Texture2D;
 use std::collections::HashMap;
