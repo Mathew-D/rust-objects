@@ -443,18 +443,13 @@ impl TextInput {
             // Add a small spacing between the text and cursor (2.0 pixels)
             let cursor_spacing = 2.0;
             
-            // Calculate cursor height based on font size
-            let cursor_height = self.font_size * 0.8; // Make cursor 80% of the font height
-            let cursor_top = text_y - cursor_height * 0.7; // Position cursor vertically centered with text
-            let cursor_bottom = cursor_top + cursor_height;
-            
-            // Draw the cursor with customizable color and added spacing
-            draw_line(
+             // Draw the cursor with customizable color and added spacing
+             draw_line(
                 text_x + cursor_offset + cursor_spacing,
-                cursor_top,
+                text_y - self.font_size * 0.7,  // Reduce the height of cursor above text
                 text_x + cursor_offset + cursor_spacing,
-                cursor_bottom,
-                2.0,
+                text_y + 2.0,  // Reduce the height of cursor below text
+                1.0,  // Reduce thickness from 2.0 to 1.0
                 self.cursor_color,
             );
         }
