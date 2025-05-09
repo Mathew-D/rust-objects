@@ -297,6 +297,13 @@ impl StillImage {
 async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
+    
+    // Check if the image format has an alpha channel at all (RGBA)
+    // If pixels length isn't divisible by 4, it's not RGBA format
+    if pixels.len() != width * height * 4 {
+        // No alpha channel, return None immediately
+        return None;
+    }
 
     let mut mask = vec![0; (width * height + 7) / 8]; // Create a bitmask with enough bytes
     let mut has_transparency = false;
