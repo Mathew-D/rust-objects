@@ -326,8 +326,20 @@ mod modules;
 mod screen1;  // Import screen modules
 mod screen2;
 use macroquad::prelude::*;
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "Program Name".to_owned(),
+        window_width: 1024,
+        window_height: 768,
+        fullscreen: false,
+        high_dpi: true,
+        window_resizable: true,
+        sample_count: 4, // MSAA: makes shapes look smoother
+        ..Default::default()
+    }
+}
 
-#[macroquad::main("Screen Manager")]
+#[macroquad::main(window_conf)]
 async fn main() {
     let mut current_screen = "screen1".to_string();  // Start with screen1
     let mut last_switch = get_time() - 0.02;  // Small delay for initialization
