@@ -111,7 +111,8 @@ pub struct AnimatedImage {
     y: f32,
     width: f32,
     height: f32,
-    transparency_mask: Option<Vec<u8>>, // Changed to Option<Vec<u8>> to be consistent with StillImage
+    transparency_mask: Option<Vec<u8>>, // Main transparency mask for the entire spritesheet
+    frame_masks: Option<Vec<Vec<u8>>>,  // Individual transparency masks for each frame
     cols: usize,
     #[allow(unused)]
     rows: usize,
@@ -152,7 +153,8 @@ impl AnimatedImage {
             y,
             width,
             height,
-            transparency_mask: Some(transparency_mask),
+            transparency_mask,
+            frame_masks: None,
             cols,
             rows,
             current_frame: 0,
@@ -256,6 +258,7 @@ impl AnimatedImage {
             width,
             height,
             transparency_mask: Some(transparency_mask),
+            frame_masks: None,
             cols: frames,
             rows: 1,
             current_frame: 0,
@@ -304,9 +307,15 @@ impl AnimatedImage {
                         Color::new(0.0, 0.0, 0.0, 0.0)
                     );
                     
+                    // Create masks for each individual frame for pixel-perfect collision
+                    let mut frame_masks = Vec::with_capacity(frame_count);
+                    
                     // Copy each frame into the spritesheet
                     for (i, frame) in frames.iter().enumerate() {
                         let x_offset = i * width_px;
+                        
+                        // Create a frame-specific mask
+                        let mut frame_mask = vec![0; (width_px * height_px + 7) / 8];
                         
                         // Copy the frame into the combined image
                         for y in 0..height_px {
@@ -316,6 +325,13 @@ impl AnimatedImage {
                                 let src_g = frame[src_idx + 1];
                                 let src_b = frame[src_idx + 2];
                                 let src_a = frame[src_idx + 3];
+                                
+                                // For the frame mask
+                                if src_a > 0 {
+                                    let mask_byte_idx = (y * width_px + x) / 8;
+                                    let bit_offset = (y * width_px + x) % 8;
+                                    frame_mask[mask_byte_idx] |= 1 << (7 - bit_offset);
+                                }
                                 
                                 let dest_x = x_offset + x;
                                 combined_image.set_pixel(
@@ -330,9 +346,12 @@ impl AnimatedImage {
                                 );
                             }
                         }
+                        
+                        // Add this frame's mask to our collection
+                        frame_masks.push(frame_mask);
                     }
                     
-                    // Create transparency mask
+                    // Create a global transparency mask for the whole spritesheet
                     let texture_width = combined_image.width() as usize;
                     let texture_height = combined_image.height() as usize;
                     let mut transparency_mask = vec![0; (texture_width * texture_height + 7) / 8];
@@ -369,6 +388,7 @@ impl AnimatedImage {
                         width,
                         height,
                         transparency_mask: Some(transparency_mask),
+                        frame_masks: Some(frame_masks),
                         cols: frame_count,
                         rows: 1,
                         current_frame: 0,
@@ -410,11 +430,18 @@ impl AnimatedImage {
                 let width = decoder.width() as usize;
                 let height = decoder.height() as usize;
                 
+                // Get global colormap (palette) if available
+                let global_palette = decoder.global_palette().map(|p| p.to_vec());
+                
                 // Process each frame
                 while let Ok(Some(frame)) = decoder.read_next_frame() {
                     // Calculate delay in seconds (GIF delay is in 1/100 seconds)
                     let delay_sec = frame.delay as f32 / 100.0;
-                    delays.push(delay_sec);
+                    if delay_sec > 0.0 {
+                        delays.push(delay_sec);
+                    } else {
+                        delays.push(0.1); // Default 100ms if no delay specified
+                    }
                     
                     // Create an RGBA frame from the GIF frame
                     let mut frame_data = vec![0; width * height * 4];
@@ -433,11 +460,29 @@ impl AnimatedImage {
                         }
                     }
                     
+                    // Determine which palette to use (local frame palette or global)
+                    let palette = if let Some(frame_palette) = &frame.palette {
+                        frame_palette.as_slice()
+                    } else if let Some(ref global) = global_palette {
+                        global.as_slice()
+                    } else {
+                        // No palette available - skip this frame
+                        continue;
+                    };
+                    
+                    // Get the transparent color index if any
+                    let transparent_idx = frame.transparent.unwrap_or(255);
+                    
                     // Fill in the frame data
                     for y in 0..frame_height {
                         for x in 0..frame_width {
                             let src_idx = y * frame_width + x;
                             let pixel_idx = frame.buffer[src_idx];
+                            
+                            // Skip transparent pixels
+                            if pixel_idx == transparent_idx {
+                                continue;
+                            }
                             
                             // Convert to global image coordinates
                             let global_x = frame_left + x;
@@ -450,27 +495,15 @@ impl AnimatedImage {
                             
                             let dest_idx = (global_y * width + global_x) * 4;
                             
-                            // Get color from palette
-                            if let Some(palette) = &frame.palette {
-                                if pixel_idx > 0 { // Non-transparent pixel
-                                    // The palette in the gif crate has RGB bytes for each color
-                                    // Each color is stored as [r, g, b] for the palette entry
-                                    let color_index = pixel_idx as usize * 3; // Each color is 3 bytes (RGB)
-                                    
-                                    // Make sure we don't go out of bounds
-                                    if color_index + 2 < palette.len() {
-                                        frame_data[dest_idx] = palette[color_index];     // R
-                                        frame_data[dest_idx + 1] = palette[color_index + 1]; // G
-                                        frame_data[dest_idx + 2] = palette[color_index + 2]; // B
-                                        frame_data[dest_idx + 3] = 255;      // A (fully opaque)
-                                    } else {
-                                        // Fallback if palette indexing is wrong
-                                        frame_data[dest_idx] = 255;     // R
-                                        frame_data[dest_idx + 1] = 255; // G
-                                        frame_data[dest_idx + 2] = 255; // B
-                                        frame_data[dest_idx + 3] = 255; // A
-                                    }
-                                }
+                            // Get color from palette - each color in palette is RGB (3 bytes)
+                            let color_index = pixel_idx as usize * 3; // Each color is 3 bytes (RGB)
+                            
+                            // Make sure we don't go out of bounds
+                            if color_index + 2 < palette.len() {
+                                frame_data[dest_idx] = palette[color_index];     // R
+                                frame_data[dest_idx + 1] = palette[color_index + 1]; // G
+                                frame_data[dest_idx + 2] = palette[color_index + 2]; // B
+                                frame_data[dest_idx + 3] = 255;      // A (fully opaque)
                             }
                         }
                     }
@@ -491,10 +524,6 @@ impl AnimatedImage {
             },
             Err(e) => {
                 println!("Failed to decode GIF: {}", e);
-                
-                // Pure macroquad fallback without using the image crate
-                // Try to load it as a regular texture and use that as a single frame
-                println!("Fallback: trying to load as a regular image");
                 return None;
             }
         }
@@ -513,6 +542,7 @@ impl AnimatedImage {
             width,
             height,
             transparency_mask: None,
+            frame_masks: None,
             cols: 1,
             rows: 1,
             current_frame: 0,
@@ -721,12 +751,26 @@ impl AnimatedImage {
     // Get texture size
     #[allow(unused)]
     pub fn texture_size(&self) -> Vec2 {
-        vec2(self.texture.width(), self.texture.height())
+        // For multi-frame animations, we should return the size of a single frame
+        // rather than the entire texture (which contains all frames side by side)
+        if self.total_frames > 1 {
+            vec2(self.frame_width, self.frame_height)
+        } else {
+            vec2(self.texture.width(), self.texture.height())
+        }
     }
     
     // Get transparency mask for collision detection
     #[allow(unused)]
     pub fn get_mask(&self) -> Option<Vec<u8>> {
+        // If we have frame-specific masks and there's more than one frame, use the current frame's mask
+        if let Some(frame_masks) = &self.frame_masks {
+            if self.total_frames > 1 && self.current_frame < frame_masks.len() {
+                return Some(frame_masks[self.current_frame].clone());
+            }
+        }
+        
+        // Fall back to the global mask if frame-specific masks aren't available
         self.transparency_mask.clone()
     }
 }
