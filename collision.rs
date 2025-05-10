@@ -16,10 +16,10 @@ In your mod.rs file located in the modules folder add the following to the end o
     pub mod collision;
 Then in with the other use command add:
 
-use crate::modules::collision::{check_collision, Collidable};
+use crate::modules::collision::check_collision;
  
 Then in the loop you would use the follow to check if two images hit: 
-let collision = check_collision(&obj1, &obj2, 1); //Where 1 is the number of pixels to skip
+let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pixels to skip
     if collision {
         println!("Collision detected!");
     } else {
@@ -28,11 +28,13 @@ let collision = check_collision(&obj1, &obj2, 1); //Where 1 is the number of pix
 */
 
 use macroquad::prelude::{Vec2};
+use crate::modules::still_image::StillImage;
+use crate::modules::animated_image::AnimatedImage;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
-// Define a trait for objects that can collide
+// Define the Collidable trait
 pub trait Collidable {
     fn pos(&self) -> Vec2;
     fn size(&self) -> Vec2;
@@ -40,6 +42,45 @@ pub trait Collidable {
     fn get_mask(&self) -> Option<Vec<u8>>;
 }
 
+// Implement for StillImage
+impl Collidable for StillImage {
+    fn pos(&self) -> Vec2 {
+        self.pos()
+    }
+    
+    fn size(&self) -> Vec2 {
+        self.size()
+    }
+    
+    fn texture_size(&self) -> Vec2 {
+        self.texture_size()
+    }
+    
+    fn get_mask(&self) -> Option<Vec<u8>> {
+        self.get_mask()
+    }
+}
+/* 
+use crate::modules::animated_image::AnimatedImage;
+// Implement for AnimatedImage
+impl Collidable for AnimatedImage {
+    fn pos(&self) -> Vec2 {
+        self.pos()
+    }
+    
+    fn size(&self) -> Vec2 {
+        self.size()
+    }
+    
+    fn texture_size(&self) -> Vec2 {
+        self.texture_size()
+    }
+    
+    fn get_mask(&self) -> Option<Vec<u8>> {
+        self.get_mask()
+    }
+}
+*/
 // Generic collision detection function that works with anything implementing Collidable
 pub fn check_collision<T, U>(obj1: &T, obj2: &U, skip_pixels: usize) -> bool
 where

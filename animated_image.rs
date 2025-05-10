@@ -731,27 +731,6 @@ impl AnimatedImage {
     }
 }
 
-// Implementation of the Collidable trait for collision detection
-use crate::modules::collision::Collidable;
-
-impl Collidable for AnimatedImage {
-    fn pos(&self) -> Vec2 {
-        self.pos()
-    }
-    
-    fn size(&self) -> Vec2 {
-        self.size()
-    }
-    
-    fn texture_size(&self) -> Vec2 {
-        self.texture_size()
-    }
-    
-    fn get_mask(&self) -> Option<Vec<u8>> {
-        self.get_mask()
-    }
-}
-
 async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format

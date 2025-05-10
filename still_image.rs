@@ -70,7 +70,6 @@ Additional functionality:
 */
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
-use crate::modules::collision::Collidable;
 
 pub struct StillImage {
     texture: Texture2D,
@@ -306,25 +305,6 @@ impl StillImage {
         self.texture = empty_texture;
         self.transparency_mask = empty_mask;
         self.filename = "__empty__".to_string();
-    }
-}
-
-// Implementation of the Collidable trait for collision detection
-impl Collidable for StillImage {
-    fn pos(&self) -> Vec2 {
-        self.pos()
-    }
-    
-    fn size(&self) -> Vec2 {
-        self.size()
-    }
-    
-    fn texture_size(&self) -> Vec2 {
-        self.texture_size()
-    }
-    
-    fn get_mask(&self) -> Option<Vec<u8>> {
-        self.get_mask()
     }
 }
 
