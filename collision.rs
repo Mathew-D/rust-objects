@@ -28,7 +28,7 @@ let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pix
 */
 
 use macroquad::prelude::Vec2;
-use crate::modules::still_image::StillImage;
+
 
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -41,7 +41,7 @@ pub trait Collidable {
     fn texture_size(&self) -> Vec2;
     fn get_mask(&self) -> Option<Vec<u8>>;
 }
-
+use crate::modules::still_image::StillImage;
 // Implement for StillImage
 impl Collidable for StillImage {
     fn pos(&self) -> Vec2 {
