@@ -130,4 +130,25 @@ impl TextureManager {
     pub fn get_texture_paths(&self) -> &[String] {
         &self.load_order
     }
+    
+    /// Clear a specific texture from the manager
+    #[allow(unused)]
+    pub fn clear_texture(&mut self, path: &str) -> bool {
+        if self.textures.remove(path).is_some() {
+            // Also remove from load_order
+            if let Some(index) = self.load_order.iter().position(|p| p == path) {
+                self.load_order.remove(index);
+            }
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Clear all textures from the manager
+    #[allow(unused)]
+    pub fn clear_all(&mut self) {
+        self.textures.clear();
+        self.load_order.clear();
+    }
 }
