@@ -181,31 +181,31 @@ impl TextButton {
     }
     
     // Getter for x position
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_x(&self) -> f32 {
         self.x
     }
     
     // Getter for y position
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_y(&self) -> f32 {
         self.y
     }
     
     // Getter for position as Vec2
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_position(&self) -> Vec2 {
         Vec2::new(self.x, self.y)
     }
     
     // Getter for the button text
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_text(&self) -> &str {
         &self.text
     }
     
     // Setter for the button text - updates cached measurements
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn set_text<T: Into<String>>(&mut self, text: T) -> &mut Self {
         self.text = text.into();
         
@@ -225,7 +225,7 @@ impl TextButton {
     }
     
     // Update method to recalculate values when position or size changes
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn update_position(&mut self, x: f32, y: f32, width: Option<f32>, height: Option<f32>) -> &mut Self {
         self.x = x;
         self.y = y;
