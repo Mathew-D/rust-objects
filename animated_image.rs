@@ -786,7 +786,7 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Optio
         return None;
     }
 
-    let mut mask = vec![0; (width * height + 7) / 8]; // Create a bitmask with enough bytes
+
     let mut has_transparency = false;
 
     // First, scan to see if the image has any transparency at all
@@ -809,7 +809,8 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Optio
     if !has_transparency {
         return None;
     }
-
+ // Only create the mask if we know the image has transparency
+ let mut mask = vec![0; (width * height + 7) / 8]; // Create a bitmask with enough bytes
     // Otherwise, create the transparency mask
     for y in 0..height {
         for x in 0..width {
