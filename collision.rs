@@ -27,9 +27,9 @@ let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pix
     }
 */
 
-use macroquad::prelude::{Vec2};
+use macroquad::prelude::Vec2;
 use crate::modules::still_image::StillImage;
-use crate::modules::animated_image::AnimatedImage;
+
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
