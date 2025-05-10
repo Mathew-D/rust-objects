@@ -70,6 +70,7 @@ Additional functionality:
 */
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
+use crate::modules::collision::Collidable;
 
 pub struct StillImage {
     texture: Texture2D,
@@ -203,18 +204,10 @@ impl StillImage {
 
     // Get the transparency mask (bitmask)
     #[allow(unused)]
-    pub fn get_mask(&self) -> Vec<u8> {
-        match &self.transparency_mask {
-            Some(mask) => mask.clone(),
-            None => {
-                // If there's no mask (image has no transparency), create a fully opaque mask
-                let tex_width = self.texture.width() as usize;
-                let tex_height = self.texture.height() as usize;
-                let mask_size = (tex_width * tex_height + 7) / 8;
-                vec![0xFF; mask_size] // 0xFF means all bits are 1 (fully opaque)
-            }
-        }
+    pub fn get_mask(&self) -> Option<Vec<u8>> {
+        self.transparency_mask.clone()
     }
+
     #[allow(unused)]
     pub async fn set_texture(&mut self, texture_path: &str) {
         let (texture, transparency_mask) = set_texture_main(texture_path).await;
@@ -313,6 +306,25 @@ impl StillImage {
         self.texture = empty_texture;
         self.transparency_mask = empty_mask;
         self.filename = "__empty__".to_string();
+    }
+}
+
+// Implementation of the Collidable trait for collision detection
+impl Collidable for StillImage {
+    fn pos(&self) -> Vec2 {
+        self.pos()
+    }
+    
+    fn size(&self) -> Vec2 {
+        self.size()
+    }
+    
+    fn texture_size(&self) -> Vec2 {
+        self.texture_size()
+    }
+    
+    fn get_mask(&self) -> Option<Vec<u8>> {
+        self.get_mask()
     }
 }
 
