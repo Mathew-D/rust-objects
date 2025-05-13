@@ -81,6 +81,7 @@ pub struct StillImage {
     stretch_enabled: bool, // Flag to control image stretching
     zoom_level: f32, // Zoom factor to scale the image
     filename: String, // Store the original filename/path
+    angle: f32, // Angle of rotation
 }
 
 impl StillImage {
@@ -110,6 +111,7 @@ impl StillImage {
                 stretch_enabled,
                 zoom_level: zoom_level.max(0.1), // Ensure minimum zoom
                 filename: "__empty__".to_string(), // Use a special filename
+                angle: 0.0, // Default angle
             };
         }
         
@@ -125,6 +127,7 @@ impl StillImage {
             stretch_enabled,
             zoom_level: zoom_level.max(0.1), // Ensure minimum zoom
             filename: asset_path.to_string(), // Store the original filename
+            angle: 0.0, // Default angle
         }
     }
 
@@ -148,6 +151,7 @@ impl StillImage {
             self.y,
             WHITE,
             DrawTextureParams {
+                rotation: self.angle,
                 dest_size: Some(vec2(final_width, final_height)),
                 ..Default::default()
             },
@@ -172,7 +176,14 @@ impl StillImage {
         self.x = pos[0];
         self.y = pos[1];
     }
-
+    #[allow(unused)]
+    pub fn set_angle(&mut self, x: f32) {
+        self.angle = x;
+    }
+    #[allow(unused)]
+    pub fn get_angle(&self) -> f32 {
+        self.angle
+    }
     // Get and set x position
     #[allow(unused)]
     pub fn get_x(&self) -> f32 {
