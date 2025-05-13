@@ -29,8 +29,6 @@ let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pix
 
 use macroquad::prelude::Vec2;
 
-
-
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
@@ -40,6 +38,7 @@ pub trait Collidable {
     fn size(&self) -> Vec2;
     fn texture_size(&self) -> Vec2;
     fn get_mask(&self) -> Option<Vec<u8>>;
+    fn get_angle(&self) -> f32; // New method to get rotation angle
 }
 use crate::modules::still_image::StillImage;
 // Implement for StillImage
@@ -58,6 +57,10 @@ impl Collidable for StillImage {
     
     fn get_mask(&self) -> Option<Vec<u8>> {
         self.get_mask()
+    }
+    
+    fn get_angle(&self) -> f32 {
+        self.get_angle()
     }
 }
 /* 
@@ -79,6 +82,10 @@ impl Collidable for AnimatedImage {
     fn get_mask(&self) -> Option<Vec<u8>> {
         self.get_mask()
     }
+    
+    fn get_angle(&self) -> f32 {
+        self.get_angle()
+    }
 }
 */
 // Generic collision detection function that works with anything implementing Collidable
@@ -91,17 +98,23 @@ where
     let size1 = obj1.size();
     let mask1_opt = obj1.get_mask();
     let texture1_size = obj1.texture_size();
+    let angle1 = obj1.get_angle();
 
     let pos2 = obj2.pos();
     let size2 = obj2.size();
     let mask2_opt = obj2.get_mask();
     let texture2_size = obj2.texture_size();
+    let angle2 = obj2.get_angle();
     
-    // Calculate bounding box overlap
-    let overlap_x = pos1.x.max(pos2.x);
-    let overlap_y = pos1.y.max(pos2.y);
-    let overlap_w = (pos1.x + size1.x).min(pos2.x + size2.x) - overlap_x;
-    let overlap_h = (pos1.y + size1.y).min(pos2.y + size2.y) - overlap_y;
+    // If objects are rotated, calculate rotated bounding boxes
+    let (rot_pos1, rot_size1) = calculate_rotated_bounding_box(pos1, size1, angle1);
+    let (rot_pos2, rot_size2) = calculate_rotated_bounding_box(pos2, size2, angle2);
+    
+    // Calculate bounding box overlap using rotated bounding boxes
+    let overlap_x = rot_pos1.x.max(rot_pos2.x);
+    let overlap_y = rot_pos1.y.max(rot_pos2.y);
+    let overlap_w = (rot_pos1.x + rot_size1.x).min(rot_pos2.x + rot_size2.x) - overlap_x;
+    let overlap_h = (rot_pos1.y + rot_size1.y).min(rot_pos2.y + rot_size2.y) - overlap_y;
     
     // Quick early exit if no bounding box overlap
     if overlap_w <= 0.0 || overlap_h <= 0.0 {
@@ -110,10 +123,26 @@ where
     
     // If both masks are None, use simple bounding box collision
     if mask1_opt.is_none() && mask2_opt.is_none() {
+        // If both are rotated but without transparency, use SAT algorithm
+        if angle1 != 0.0 || angle2 != 0.0 {
+            return check_rotated_rectangle_collision(
+                pos1, size1, angle1,
+                pos2, size2, angle2
+            );
+        }
         return true; // Bounding boxes overlap
     }
     
-    // Handle case where only one mask is available
+    // If at least one object has rotation, we need to use the rotation-aware collision code
+    if angle1 != 0.0 || angle2 != 0.0 {
+        return check_rotated_pixel_collision(
+            obj1, obj2,
+            &overlap_x, &overlap_y, &overlap_w, &overlap_h,
+            skip_pixels
+        );
+    }
+    
+    // Handle case where only one mask is available (mixed case: one has transparency, one doesn't)
     if mask1_opt.is_some() && mask2_opt.is_none() {
         // Only obj1 has a mask
         return check_one_masked_collision(
@@ -134,7 +163,7 @@ where
         );
     }
     
-    // If we get here, both objects have masks
+    // If we get here, both objects have masks but no rotation
     let mask1 = mask1_opt.unwrap();
     let mask2 = mask2_opt.unwrap();
 
@@ -257,4 +286,432 @@ fn check_one_masked_collision(
         }
         false
     }
+}
+
+// Helper function for collision detection when only one rotated object has a transparency mask
+#[inline]
+fn check_one_rotated_masked_collision(
+    masked_pos: Vec2,
+    masked_size: Vec2,
+    masked_tex_size: Vec2,
+    mask: Vec<u8>,
+    masked_angle: f32,
+    masked_center: Vec2,
+    other_pos: Vec2,
+    other_size: Vec2,
+    other_angle: f32,
+    other_center: Vec2,
+    overlap_x: &f32,
+    overlap_y: &f32,
+    overlap_w: &f32,
+    overlap_h: &f32,
+    skip_pixels: usize
+) -> bool {
+    // For the masked object, we need to check each potentially colliding pixel
+    // For the non-masked (solid) object, we just need to check if the point is inside its rotated bounds
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Parallel processing for Linux/Windows
+        return (0..*overlap_h as usize).into_par_iter().step_by(skip_pixels).any(|y| {
+            (0..*overlap_w as usize).into_par_iter().step_by(skip_pixels).any(|x| {
+                // For each pixel in the overlap region
+                let world_point = Vec2::new(*overlap_x + x as f32, *overlap_y + y as f32);
+                
+                // Transform to masked object's local space (accounting for rotation)
+                let local_masked_point = rotate_point(world_point, masked_center, -masked_angle);
+                
+                // Check if point is within masked object's bounds
+                let in_masked_bounds = local_masked_point.x >= masked_pos.x && 
+                                      local_masked_point.x < masked_pos.x + masked_size.x &&
+                                      local_masked_point.y >= masked_pos.y && 
+                                      local_masked_point.y < masked_pos.y + masked_size.y;
+                
+                if !in_masked_bounds {
+                    return false;
+                }
+                
+                // Calculate texture coordinate in the masked object
+                let tx = ((local_masked_point.x - masked_pos.x) / masked_size.x * masked_tex_size.x) as usize;
+                let ty = ((local_masked_point.y - masked_pos.y) / masked_size.y * masked_tex_size.y) as usize;
+                
+                // Check if pixel is opaque in masked object
+                let idx = ty * masked_tex_size.x as usize + tx;
+                let mask_byte = mask[idx / 8];
+                let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
+                
+                if mask_bit == 0 {
+                    return false; // Transparent pixel, no collision
+                }
+                
+                // For the solid object, check if the point is inside its rotated bounds
+                // Transform to other object's local space
+                let local_other_point = rotate_point(world_point, other_center, -other_angle);
+                
+                // Check if point is within other object's bounds
+                let in_other_bounds = local_other_point.x >= other_pos.x && 
+                                     local_other_point.x < other_pos.x + other_size.x &&
+                                     local_other_point.y >= other_pos.y && 
+                                     local_other_point.y < other_pos.y + other_size.y;
+                
+                // If the point is inside both objects, we have a collision
+                mask_bit == 1 && in_other_bounds
+            })
+        });
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Sequential for Web (WASM)
+        for y in (0..*overlap_h as usize).step_by(skip_pixels) {
+            for x in (0..*overlap_w as usize).step_by(skip_pixels) {
+                // For each pixel in the overlap region
+                let world_point = Vec2::new(*overlap_x + x as f32, *overlap_y + y as f32);
+                
+                // Transform to masked object's local space (accounting for rotation)
+                let local_masked_point = rotate_point(world_point, masked_center, -masked_angle);
+                
+                // Check if point is within masked object's bounds
+                let in_masked_bounds = local_masked_point.x >= masked_pos.x && 
+                                      local_masked_point.x < masked_pos.x + masked_size.x &&
+                                      local_masked_point.y >= masked_pos.y && 
+                                      local_masked_point.y < masked_pos.y + masked_size.y;
+                
+                if !in_masked_bounds {
+                    continue;
+                }
+                
+                // Calculate texture coordinate in the masked object
+                let tx = ((local_masked_point.x - masked_pos.x) / masked_size.x * masked_tex_size.x) as usize;
+                let ty = ((local_masked_point.y - masked_pos.y) / masked_size.y * masked_tex_size.y) as usize;
+                
+                // Check if pixel is opaque in masked object
+                let idx = ty * masked_tex_size.x as usize + tx;
+                let mask_byte = mask[idx / 8];
+                let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
+                
+                if mask_bit == 0 {
+                    continue; // Transparent pixel, no collision
+                }
+                
+                // For the solid object, check if the point is inside its rotated bounds
+                // Transform to other object's local space
+                let local_other_point = rotate_point(world_point, other_center, -other_angle);
+                
+                // Check if point is within other object's bounds
+                let in_other_bounds = local_other_point.x >= other_pos.x && 
+                                     local_other_point.x < other_pos.x + other_size.x &&
+                                     local_other_point.y >= other_pos.y && 
+                                     local_other_point.y < other_pos.y + other_size.y;
+                
+                // If the point is inside both objects, we have a collision
+                if mask_bit == 1 && in_other_bounds {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+// Helper function to handle pixel-perfect collision for rotated objects
+fn check_rotated_pixel_collision<T, U>(
+    obj1: &T,
+    obj2: &U,
+    overlap_x: &f32,
+    overlap_y: &f32,
+    overlap_w: &f32,
+    overlap_h: &f32,
+    skip_pixels: usize
+) -> bool
+where
+    T: Collidable,
+    U: Collidable,
+{
+    let pos1 = obj1.pos();
+    let size1 = obj1.size();
+    let mask1_opt = obj1.get_mask();
+    let texture1_size = obj1.texture_size();
+    let angle1 = obj1.get_angle();
+    let center1 = Vec2::new(pos1.x + size1.x / 2.0, pos1.y + size1.y / 2.0);
+
+    let pos2 = obj2.pos();
+    let size2 = obj2.size();
+    let mask2_opt = obj2.get_mask();
+    let texture2_size = obj2.texture_size();
+    let angle2 = obj2.get_angle();
+    let center2 = Vec2::new(pos2.x + size2.x / 2.0, pos2.y + size2.y / 2.0);
+    
+    // Mixed case: Only one image has transparency
+    if mask1_opt.is_some() && mask2_opt.is_none() {
+        // Object 1 has transparency, object 2 doesn't
+        return check_one_rotated_masked_collision(
+            pos1, size1, texture1_size, mask1_opt.unwrap(), angle1, center1,
+            pos2, size2, angle2, center2,
+            overlap_x, overlap_y, overlap_w, overlap_h,
+            skip_pixels
+        );
+    }
+    
+    if mask1_opt.is_none() && mask2_opt.is_some() {
+        // Object 2 has transparency, object 1 doesn't
+        return check_one_rotated_masked_collision(
+            pos2, size2, texture2_size, mask2_opt.unwrap(), angle2, center2,
+            pos1, size1, angle1, center1,
+            overlap_x, overlap_y, overlap_w, overlap_h,
+            skip_pixels
+        );
+    }
+    
+    // If both objects lack masks, use the SAT algorithm
+    if mask1_opt.is_none() && mask2_opt.is_none() {
+        return check_rotated_rectangle_collision(
+            pos1, size1, angle1,
+            pos2, size2, angle2
+        );
+    }
+    
+    // Both objects have transparency masks - use full pixel-perfect collision
+    let mask1 = mask1_opt.unwrap();
+    let mask2 = mask2_opt.unwrap();
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Parallel processing (Rayon) for Linux/Windows
+        return (0..*overlap_h as usize).into_par_iter().step_by(skip_pixels).any(|y| {
+            (0..*overlap_w as usize).into_par_iter().step_by(skip_pixels).any(|x| {
+                // For each pixel in the overlap region
+                let world_point = Vec2::new(*overlap_x + x as f32, *overlap_y + y as f32);
+                
+                // Find the corresponding point in obj1's local space (accounting for rotation)
+                let local_point1 = rotate_point(world_point, center1, -angle1); // Negative angle to reverse rotation
+                
+                // Find the corresponding point in obj2's local space (accounting for rotation)
+                let local_point2 = rotate_point(world_point, center2, -angle2); // Negative angle to reverse rotation
+                
+                // Check if the point is inside both objects' bounds
+                let in_bounds1 = local_point1.x >= pos1.x && local_point1.x < pos1.x + size1.x &&
+                                local_point1.y >= pos1.y && local_point1.y < pos1.y + size1.y;
+                
+                let in_bounds2 = local_point2.x >= pos2.x && local_point2.x < pos2.x + size2.x &&
+                                local_point2.y >= pos2.y && local_point2.y < pos2.y + size2.y;
+                
+                if !in_bounds1 || !in_bounds2 {
+                    return false; // Point is outside one of the objects' bounds
+                }
+                
+                // Convert to texture coordinates
+                let tx1 = ((local_point1.x - pos1.x) / size1.x * texture1_size.x) as usize;
+                let ty1 = ((local_point1.y - pos1.y) / size1.y * texture1_size.y) as usize;
+                
+                let tx2 = ((local_point2.x - pos2.x) / size2.x * texture2_size.x) as usize;
+                let ty2 = ((local_point2.y - pos2.y) / size2.y * texture2_size.y) as usize;
+                
+                // Get the pixel values from the transparency masks
+                let idx1 = ty1 * texture1_size.x as usize + tx1;
+                let idx2 = ty2 * texture2_size.x as usize + tx2;
+                
+                // Check the corresponding bit for both masks
+                let mask1_byte = mask1[idx1 / 8];
+                let mask2_byte = mask2[idx2 / 8];
+                let mask1_bit = (mask1_byte >> (7 - (idx1 % 8))) & 1;
+                let mask2_bit = (mask2_byte >> (7 - (idx2 % 8))) & 1;
+                
+                // If both bits are set, we have a collision at this pixel
+                mask1_bit == 1 && mask2_bit == 1
+            })
+        });
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Sequential for Web (WASM)
+        for y in (0..*overlap_h as usize).step_by(skip_pixels) {
+            for x in (0..*overlap_w as usize).step_by(skip_pixels) {
+                // For each pixel in the overlap region
+                let world_point = Vec2::new(*overlap_x + x as f32, *overlap_y + y as f32);
+                
+                // Find the corresponding point in obj1's local space (accounting for rotation)
+                let local_point1 = rotate_point(world_point, center1, -angle1); // Negative angle to reverse rotation
+                
+                // Find the corresponding point in obj2's local space (accounting for rotation)
+                let local_point2 = rotate_point(world_point, center2, -angle2); // Negative angle to reverse rotation
+                
+                // Check if the point is inside both objects' bounds
+                let in_bounds1 = local_point1.x >= pos1.x && local_point1.x < pos1.x + size1.x &&
+                                local_point1.y >= pos1.y && local_point1.y < pos1.y + size1.y;
+                
+                let in_bounds2 = local_point2.x >= pos2.x && local_point2.x < pos2.x + size2.x &&
+                                local_point2.y >= pos2.y && local_point2.y < pos2.y + size2.y;
+                
+                if !in_bounds1 || !in_bounds2 {
+                    continue; // Point is outside one of the objects' bounds
+                }
+                
+                // Convert to texture coordinates
+                let tx1 = ((local_point1.x - pos1.x) / size1.x * texture1_size.x) as usize;
+                let ty1 = ((local_point1.y - pos1.y) / size1.y * texture1_size.y) as usize;
+                
+                let tx2 = ((local_point2.x - pos2.x) / size2.x * texture2_size.x) as usize;
+                let ty2 = ((local_point2.y - pos2.y) / size2.y * texture2_size.y) as usize;
+                
+                // Get the pixel values from the transparency masks
+                let idx1 = ty1 * texture1_size.x as usize + tx1;
+                let idx2 = ty2 * texture2_size.x as usize + tx2;
+                
+                // Check the corresponding bit for both masks
+                let mask1_byte = mask1[idx1 / 8];
+                let mask2_byte = mask2[idx2 / 8];
+                let mask1_bit = (mask1_byte >> (7 - (idx1 % 8))) & 1;
+                let mask2_bit = (mask2_byte >> (7 - (idx2 % 8))) & 1;
+                
+                // If both bits are set, we have a collision at this pixel
+                if mask1_bit == 1 && mask2_bit == 1 {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+// New function to check collision between two rotated rectangles
+// This is much more efficient than pixel-perfect collision for solid images
+fn check_rotated_rectangle_collision(
+    pos1: Vec2, size1: Vec2, angle1: f32,
+    pos2: Vec2, size2: Vec2, angle2: f32
+) -> bool {
+    // For simplicity, we'll use the Separating Axis Theorem (SAT)
+    // This is a common algorithm for detecting collision between convex polygons
+    
+    // Get the corners of both rectangles
+    let center1 = Vec2::new(pos1.x + size1.x / 2.0, pos1.y + size1.y / 2.0);
+    let center2 = Vec2::new(pos2.x + size2.x / 2.0, pos2.y + size2.y / 2.0);
+    
+    // Calculate half-widths and half-heights
+    let half_width1 = size1.x / 2.0;
+    let half_height1 = size1.y / 2.0;
+    let half_width2 = size2.x / 2.0;
+    let half_height2 = size2.y / 2.0;
+    
+    // Calculate the four corners of both rectangles
+    let corners1 = [
+        rotate_point(Vec2::new(center1.x - half_width1, center1.y - half_height1), center1, angle1),
+        rotate_point(Vec2::new(center1.x + half_width1, center1.y - half_height1), center1, angle1),
+        rotate_point(Vec2::new(center1.x + half_width1, center1.y + half_height1), center1, angle1),
+        rotate_point(Vec2::new(center1.x - half_width1, center1.y + half_height1), center1, angle1)
+    ];
+    
+    let corners2 = [
+        rotate_point(Vec2::new(center2.x - half_width2, center2.y - half_height2), center2, angle2),
+        rotate_point(Vec2::new(center2.x + half_width2, center2.y - half_height2), center2, angle2),
+        rotate_point(Vec2::new(center2.x + half_width2, center2.y + half_height2), center2, angle2),
+        rotate_point(Vec2::new(center2.x - half_width2, center2.y + half_height2), center2, angle2)
+    ];
+    
+    // Calculate the edges of both rectangles
+    let edges1 = [
+        Vec2::new(corners1[1].x - corners1[0].x, corners1[1].y - corners1[0].y),
+        Vec2::new(corners1[2].x - corners1[1].x, corners1[2].y - corners1[1].y),
+        Vec2::new(corners1[3].x - corners1[2].x, corners1[3].y - corners1[2].y),
+        Vec2::new(corners1[0].x - corners1[3].x, corners1[0].y - corners1[3].y)
+    ];
+    
+    let edges2 = [
+        Vec2::new(corners2[1].x - corners2[0].x, corners2[1].y - corners2[0].y),
+        Vec2::new(corners2[2].x - corners2[1].x, corners2[2].y - corners2[1].y),
+        Vec2::new(corners2[3].x - corners2[2].x, corners2[3].y - corners2[2].y),
+        Vec2::new(corners2[0].x - corners2[3].x, corners2[0].y - corners2[3].y)
+    ];
+    
+    // Collect all axes to test (perpendicular to edges)
+    let mut axes = Vec::with_capacity(8);
+    for edge in &edges1 {
+        axes.push(Vec2::new(-edge.y, edge.x).normalize()); // Perpendicular
+    }
+    for edge in &edges2 {
+        axes.push(Vec2::new(-edge.y, edge.x).normalize()); // Perpendicular
+    }
+    
+    // Test all axes
+    for axis in &axes {
+        // Project corners onto axis
+        let mut min1 = f32::MAX;
+        let mut max1 = f32::MIN;
+        let mut min2 = f32::MAX;
+        let mut max2 = f32::MIN;
+        
+        for corner in &corners1 {
+            let projection = corner.x * axis.x + corner.y * axis.y;
+            min1 = min1.min(projection);
+            max1 = max1.max(projection);
+        }
+        
+        for corner in &corners2 {
+            let projection = corner.x * axis.x + corner.y * axis.y;
+            min2 = min2.min(projection);
+            max2 = max2.max(projection);
+        }
+        
+        // Check for gap
+        if min1 > max2 || min2 > max1 {
+            return false; // Gap found, no collision
+        }
+    }
+    
+    // No gap found on any axis, rectangles are colliding
+    true
+}
+
+// New helper function to rotate a point around a center point
+fn rotate_point(point: Vec2, center: Vec2, angle: f32) -> Vec2 {
+    if angle == 0.0 {
+        return point;
+    }
+    
+    // Translate point to origin
+    let translated = Vec2::new(point.x - center.x, point.y - center.y);
+    
+    // Rotate
+    let cos_angle = angle.cos();
+    let sin_angle = angle.sin();
+    
+    let rotated_x = translated.x * cos_angle - translated.y * sin_angle;
+    let rotated_y = translated.x * sin_angle + translated.y * cos_angle;
+    
+    // Translate back
+    Vec2::new(rotated_x + center.x, rotated_y + center.y)
+}
+
+// Calculate the rotated bounding box dimensions
+fn calculate_rotated_bounding_box(pos: Vec2, size: Vec2, angle: f32) -> (Vec2, Vec2) {
+    if angle == 0.0 {
+        return (pos, size);
+    }
+    
+    let center = Vec2::new(pos.x + size.x / 2.0, pos.y + size.y / 2.0);
+    
+    // Calculate the four corners of the original rectangle
+    let top_left = pos;
+    let top_right = Vec2::new(pos.x + size.x, pos.y);
+    let bottom_left = Vec2::new(pos.x, pos.y + size.y);
+    let bottom_right = Vec2::new(pos.x + size.x, pos.y + size.y);
+    
+    // Rotate each corner around the center
+    let rotated_tl = rotate_point(top_left, center, angle);
+    let rotated_tr = rotate_point(top_right, center, angle);
+    let rotated_bl = rotate_point(bottom_left, center, angle);
+    let rotated_br = rotate_point(bottom_right, center, angle);
+    
+    // Find the min and max x,y coordinates to form the bounding box
+    let min_x = rotated_tl.x.min(rotated_tr.x).min(rotated_bl.x).min(rotated_br.x);
+    let min_y = rotated_tl.y.min(rotated_tr.y).min(rotated_bl.y).min(rotated_br.y);
+    let max_x = rotated_tl.x.max(rotated_tr.x).max(rotated_bl.x).max(rotated_br.x);
+    let max_y = rotated_tl.y.max(rotated_tr.y).max(rotated_bl.y).max(rotated_br.y);
+    
+    // Return the new position and size
+    (
+        Vec2::new(min_x, min_y),
+        Vec2::new(max_x - min_x, max_y - min_y)
+    )
 }

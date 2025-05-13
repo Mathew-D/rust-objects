@@ -165,7 +165,13 @@ impl StillImage {
     }
     #[allow(unused)]
     pub fn size(&self) -> Vec2 {
-        vec2(self.width, self.height)
+        let (width, height) = if self.stretch_enabled {
+            (self.width, self.height)
+        } else {
+            (self.texture.width(), self.texture.height())
+        };
+        
+        vec2(width * self.zoom_level, height * self.zoom_level)
     }
     #[allow(unused)]
     pub fn texture_size(&self) -> Vec2 {

@@ -126,6 +126,7 @@ pub struct AnimatedImage {
     state: AnimationState,
     loop_animation: bool,
     last_update: f32, // Store the last update time
+    angle: f32, // Rotation angle
 }
 
 impl AnimatedImage {
@@ -167,6 +168,7 @@ impl AnimatedImage {
             state: AnimationState::Playing,
             loop_animation,
             last_update: get_time() as f32,
+            angle: 0.0,
         }
     }
     
@@ -271,6 +273,7 @@ impl AnimatedImage {
             state: AnimationState::Playing,
             loop_animation,
             last_update: get_time()as f32,
+            angle: 0.0,
         }
     }
     
@@ -401,6 +404,7 @@ impl AnimatedImage {
                         state: AnimationState::Playing,
                         loop_animation,
                         last_update: get_time() as f32,
+                        angle: 0.0,
                     };
                 } else {
                     // Fall back to loading as a regular texture if GIF processing fails
@@ -555,6 +559,7 @@ impl AnimatedImage {
             state: AnimationState::Stopped,
             loop_animation: false,
             last_update: 0.0,
+            angle: 0.0,
         }
     }
     
@@ -617,6 +622,7 @@ impl AnimatedImage {
             self.y,
             WHITE,
             DrawTextureParams {
+                rotation: self.angle,
                 dest_size: Some(vec2(self.width, self.height)),
                 source: Some(source_rect),
                 ..Default::default()
@@ -698,7 +704,14 @@ impl AnimatedImage {
         self.x = x;
         self.y = y;
     }
-    
+    #[allow(unused)]
+    pub fn set_angle(&mut self, x: f32) {
+        self.angle = x;
+    }
+    #[allow(unused)]
+    pub fn get_angle(&self) -> f32 {
+        self.angle
+    }
     // Get and set x position
     #[allow(unused)]
     pub fn get_x(&self) -> f32 {
