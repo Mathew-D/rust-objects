@@ -3,6 +3,11 @@ Made by: Mathew Dusome
 Lets us check for collisions with pixels.  One version for web one for native 
 linux and windows
 
+ROTATION CONVENTION:
+When working with rotations in this module, positive angles represent counter-clockwise rotation
+and negative angles represent clockwise rotation. This follows the standard mathematical convention
+for 2D coordinate systems where the y-axis points downward (common in computer graphics).
+
 Must add the following to Cargo.toml
 
 # Conditionally include Rayon only for native platforms (not Wasm)

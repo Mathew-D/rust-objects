@@ -3,6 +3,11 @@ Made by: Mathew Dusome
 Lets us check for collisions with pixels.  One version for web one for native 
 linux and windows
 
+ROTATION CONVENTION:
+When working with rotations in this module, positive angles represent counter-clockwise rotation
+and negative angles represent clockwise rotation. This follows the standard mathematical convention
+for 2D coordinate systems where the y-axis points downward (common in computer graphics).
+
 Must add the following to Cargo.toml
 
 # Conditionally include Rayon only for native platforms (not Wasm)
@@ -89,44 +94,6 @@ impl Collidable for AnimatedImage {
     }
 }
 */
-
-// Utility function to calculate texture coordinates safely
-#[inline]
-fn calc_tex_coord(point: Vec2, pos: Vec2, size: Vec2, tex_size: Vec2) -> (usize, usize) {
-    let safe_size_x = if size.x < 0.001 { 0.001 } else { size.x };
-    let safe_size_y = if size.y < 0.001 { 0.001 } else { size.y };
-    
-    let norm_x = (point.x - pos.x) / safe_size_x;
-    let norm_y = (point.y - pos.y) / safe_size_y;
-    
-    let clamped_x = norm_x.max(0.0).min(0.999);
-    let clamped_y = norm_y.max(0.0).min(0.999);
-    
-    let tx = (clamped_x * tex_size.x) as usize;
-    let ty = (clamped_y * tex_size.y) as usize;
-    
-    (tx, ty)
-}
-
-// Utility function to check if a mask bit is set (1 = opaque)
-#[inline]
-fn is_mask_bit_set(mask: &[u8], idx: usize) -> Option<bool> {
-    if idx / 8 >= mask.len() {
-        None
-    } else {
-        let mask_byte = mask[idx / 8];
-        let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
-        Some(mask_bit == 1)
-    }
-}
-
-// Utility function to check if a point is within rectangle bounds
-#[inline]
-fn is_point_in_bounds(point: Vec2, pos: Vec2, size: Vec2) -> bool {
-    point.x >= pos.x && point.x < pos.x + size.x &&
-    point.y >= pos.y && point.y < pos.y + size.y
-}
-
 // Generic collision detection function that works with anything implementing Collidable
 pub fn check_collision<T, U>(obj1: &T, obj2: &U, skip_pixels: usize) -> bool
 where
@@ -211,22 +178,48 @@ where
         // Parallel processing (Rayon) on Linux/Windows
         return (0..overlap_h as usize).into_par_iter().step_by(skip_pixels).any(|y| {
             (0..overlap_w as usize).into_par_iter().step_by(skip_pixels).any(|x| {
-                let world_point = Vec2::new(overlap_x + x as f32, overlap_y + y as f32);
+                // Calculate texture coordinates with safety checks for obj1
+                let safe_size1_x = if size1.x < 0.001 { 0.001 } else { size1.x };
+                let safe_size1_y = if size1.y < 0.001 { 0.001 } else { size1.y };
                 
-                // Calculate texture coordinates for both objects
-                let (tx1, ty1) = calc_tex_coord(world_point, pos1, size1, texture1_size);
-                let (tx2, ty2) = calc_tex_coord(world_point, pos2, size2, texture2_size);
+                let norm_x1 = (overlap_x + x as f32 - pos1.x) / safe_size1_x;
+                let norm_y1 = (overlap_y + y as f32 - pos1.y) / safe_size1_y;
                 
-                // Calculate indices in mask arrays
+                let clamped_x1 = norm_x1.max(0.0).min(0.999);
+                let clamped_y1 = norm_y1.max(0.0).min(0.999);
+                
+                let tx1 = (clamped_x1 * texture1_size.x) as usize;
+                let ty1 = (clamped_y1 * texture1_size.y) as usize;
+                
+                // Calculate texture coordinates with safety checks for obj2
+                let safe_size2_x = if size2.x < 0.001 { 0.001 } else { size2.x };
+                let safe_size2_y = if size2.y < 0.001 { 0.001 } else { size2.y };
+                
+                let norm_x2 = (overlap_x + x as f32 - pos2.x) / safe_size2_x;
+                let norm_y2 = (overlap_y + y as f32 - pos2.y) / safe_size2_y;
+                
+                let clamped_x2 = norm_x2.max(0.0).min(0.999);
+                let clamped_y2 = norm_y2.max(0.0).min(0.999);
+                
+                let tx2 = (clamped_x2 * texture2_size.x) as usize;
+                let ty2 = (clamped_y2 * texture2_size.y) as usize;
+
                 let idx1 = ty1 * texture1_size.x as usize + tx1;
                 let idx2 = ty2 * texture2_size.x as usize + tx2;
                 
-                // Check both mask bits
-                let mask1_bit = is_mask_bit_set(&mask1, idx1);
-                let mask2_bit = is_mask_bit_set(&mask2, idx2);
+                // Ensure we don't access outside the array bounds
+                if idx1 / 8 >= mask1.len() || idx2 / 8 >= mask2.len() {
+                    return false;
+                }
+
+                // Check the corresponding bit for both masks
+                let mask1_byte = mask1[idx1 / 8];
+                let mask2_byte = mask2[idx2 / 8];
+                let mask1_bit = (mask1_byte >> (7 - (idx1 % 8))) & 1;
+                let mask2_bit = (mask2_byte >> (7 - (idx2 % 8))) & 1;
                 
-                // If either mask check failed or one of the bits is not set, no collision
-                mask1_bit.unwrap_or(false) && mask2_bit.unwrap_or(false)
+                // If both bits are set, we have a collision
+                mask1_bit == 1 && mask2_bit == 1
             })
         });
     }
@@ -236,23 +229,47 @@ where
         // Sequential for Web (WASM)
         for y in (0..overlap_h as usize).step_by(skip_pixels) {
             for x in (0..overlap_w as usize).step_by(skip_pixels) {
-                let world_point = Vec2::new(overlap_x + x as f32, overlap_y + y as f32);
+                // Calculate texture coordinates with safety checks for obj1
+                let safe_size1_x = if size1.x < 0.001 { 0.001 } else { size1.x };
+                let safe_size1_y = if size1.y < 0.001 { 0.001 } else { size1.y };
                 
-                // Calculate texture coordinates for both objects
-                let (tx1, ty1) = calc_tex_coord(world_point, pos1, size1, texture1_size);
-                let (tx2, ty2) = calc_tex_coord(world_point, pos2, size2, texture2_size);
+                let norm_x1 = (overlap_x + x as f32 - pos1.x) / safe_size1_x;
+                let norm_y1 = (overlap_y + y as f32 - pos1.y) / safe_size1_y;
                 
-                // Calculate indices in mask arrays
+                let clamped_x1 = norm_x1.max(0.0).min(0.999);
+                let clamped_y1 = norm_y1.max(0.0).min(0.999);
+                
+                let tx1 = (clamped_x1 * texture1_size.x) as usize;
+                let ty1 = (clamped_y1 * texture1_size.y) as usize;
+                
+                // Calculate texture coordinates with safety checks for obj2
+                let safe_size2_x = if size2.x < 0.001 { 0.001 } else { size2.x };
+                let safe_size2_y = if size2.y < 0.001 { 0.001 } else { size2.y };
+                
+                let norm_x2 = (overlap_x + x as f32 - pos2.x) / safe_size2_x;
+                let norm_y2 = (overlap_y + y as f32 - pos2.y) / safe_size2_y;
+                
+                let clamped_x2 = norm_x2.max(0.0).min(0.999);
+                let clamped_y2 = norm_y2.max(0.0).min(0.999);
+                
+                let tx2 = (clamped_x2 * texture2_size.x) as usize;
+                let ty2 = (clamped_y2 * texture2_size.y) as usize;
+
                 let idx1 = ty1 * texture1_size.x as usize + tx1;
                 let idx2 = ty2 * texture2_size.x as usize + tx2;
                 
-                // Check both mask bits
-                let mask1_bit = is_mask_bit_set(&mask1, idx1);
-                let mask2_bit = is_mask_bit_set(&mask2, idx2);
-                
-                // If both bits are set, we have a collision
-                if mask1_bit.unwrap_or(false) && mask2_bit.unwrap_or(false) {
-                    return true;
+                // Ensure we don't access outside the array bounds
+                if idx1 / 8 >= mask1.len() || idx2 / 8 >= mask2.len() {
+                    continue;
+                }
+
+                let mask1_byte = mask1[idx1 / 8];
+                let mask2_byte = mask2[idx2 / 8];
+                let mask1_bit = (mask1_byte >> (7 - (idx1 % 8))) & 1;
+                let mask2_bit = (mask2_byte >> (7 - (idx2 % 8))) & 1;
+
+                if mask1_bit == 1 && mask2_bit == 1 {
+                    return true; // Collision detected
                 }
             }
         }
@@ -280,22 +297,37 @@ fn check_one_masked_collision(
         // Parallel processing for Linux/Windows
         return (0..*overlap_h as usize).into_par_iter().step_by(skip_pixels).any(|y| {
             (0..*overlap_w as usize).into_par_iter().step_by(skip_pixels).any(|x| {
-                let world_point = Vec2::new(*overlap_x + x as f32, *overlap_y + y as f32);
+                // Calculate texture coordinate in the masked object with safety checks
+                let safe_size_x = if masked_size.x < 0.001 { 0.001 } else { masked_size.x };
+                let safe_size_y = if masked_size.y < 0.001 { 0.001 } else { masked_size.y };
                 
-                // Calculate texture coordinates for masked object
-                let (tx, ty) = calc_tex_coord(world_point, *masked_pos, *masked_size, *masked_tex_size);
+                let norm_x = (*overlap_x + x as f32 - masked_pos.x) / safe_size_x;
+                let norm_y = (*overlap_y + y as f32 - masked_pos.y) / safe_size_y;
                 
-                // Calculate index in mask array
+                let clamped_x = norm_x.max(0.0).min(0.999);
+                let clamped_y = norm_y.max(0.0).min(0.999);
+                
+                let tx = (clamped_x * masked_tex_size.x) as usize;
+                let ty = (clamped_y * masked_tex_size.y) as usize;
+                
+                // Calculate bit index and check if pixel is opaque
                 let idx = ty * masked_tex_size.x as usize + tx;
                 
-                // Check mask bit
-                let is_opaque = is_mask_bit_set(mask, idx).unwrap_or(false);
+                // Ensure we don't access outside the array bounds
+                if idx / 8 >= mask.len() {
+                    return false;
+                }
                 
-                // Check if point is in other object's bounds
-                let in_other_bounds = is_point_in_bounds(world_point, *other_pos, *other_size);
+                let mask_byte = mask[idx / 8];
+                let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
                 
-                // Collision occurs if point is opaque in the masked object and also within the other object
-                is_opaque && in_other_bounds
+                // The point overlaps if it's within the other object's bounds and the mask bit is set
+                let point_x = *overlap_x + x as f32;
+                let point_y = *overlap_y + y as f32;
+                let in_other_bounds = point_x >= other_pos.x && point_x < other_pos.x + other_size.x &&
+                                     point_y >= other_pos.y && point_y < other_pos.y + other_size.y;
+                
+                mask_bit == 1 && in_other_bounds
             })
         });
     }
@@ -305,21 +337,37 @@ fn check_one_masked_collision(
         // Sequential for Web (WASM)
         for y in (0..*overlap_h as usize).step_by(skip_pixels) {
             for x in (0..*overlap_w as usize).step_by(skip_pixels) {
-                let world_point = Vec2::new(*overlap_x + x as f32, *overlap_y + y as f32);
+                // Calculate texture coordinate in the masked object with safety checks
+                let safe_size_x = if masked_size.x < 0.001 { 0.001 } else { masked_size.x };
+                let safe_size_y = if masked_size.y < 0.001 { 0.001 } else { masked_size.y };
                 
-                // Calculate texture coordinates for masked object
-                let (tx, ty) = calc_tex_coord(world_point, *masked_pos, *masked_size, *masked_tex_size);
+                let norm_x = (*overlap_x + x as f32 - masked_pos.x) / safe_size_x;
+                let norm_y = (*overlap_y + y as f32 - masked_pos.y) / safe_size_y;
                 
-                // Calculate index in mask array
+                let clamped_x = norm_x.max(0.0).min(0.999);
+                let clamped_y = norm_y.max(0.0).min(0.999);
+                
+                let tx = (clamped_x * masked_tex_size.x) as usize;
+                let ty = (clamped_y * masked_tex_size.y) as usize;
+                
+                // Calculate bit index and check if pixel is opaque
                 let idx = ty * masked_tex_size.x as usize + tx;
                 
-                // Check mask bit
-                let is_opaque = is_mask_bit_set(mask, idx).unwrap_or(false);
+                // Ensure we don't access outside the array bounds
+                if idx / 8 >= mask.len() {
+                    continue;
+                }
                 
-                // Check if point is in other object's bounds
-                let in_other_bounds = is_point_in_bounds(world_point, *other_pos, *other_size);
+                let mask_byte = mask[idx / 8];
+                let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
                 
-                if is_opaque && in_other_bounds {
+                // The point overlaps if it's within the other object's bounds and the mask bit is set
+                let point_x = *overlap_x + x as f32;
+                let point_y = *overlap_y + y as f32;
+                let in_other_bounds = point_x >= other_pos.x && point_x < other_pos.x + other_size.x &&
+                                     point_y >= other_pos.y && point_y < other_pos.y + other_size.y;
+                
+                if mask_bit == 1 && in_other_bounds {
                     return true;
                 }
             }
@@ -347,6 +395,9 @@ fn check_one_rotated_masked_collision(
     overlap_h: &f32,
     skip_pixels: usize
 ) -> bool {
+    // For the masked object, we need to check each potentially colliding pixel
+    // For the non-masked (solid) object, we just need to check if the point is inside its rotated bounds
+    
     #[cfg(not(target_arch = "wasm32"))]
     {
         // Parallel processing for Linux/Windows
@@ -359,26 +410,55 @@ fn check_one_rotated_masked_collision(
                 let local_masked_point = rotate_point(world_point, masked_center, -masked_angle);
                 
                 // Check if point is within masked object's bounds
-                if !is_point_in_bounds(local_masked_point, masked_pos, masked_size) {
+                let in_masked_bounds = local_masked_point.x >= masked_pos.x && 
+                                      local_masked_point.x < masked_pos.x + masked_size.x &&
+                                      local_masked_point.y >= masked_pos.y && 
+                                      local_masked_point.y < masked_pos.y + masked_size.y;
+                
+                if !in_masked_bounds {
                     return false;
                 }
                 
-                // Calculate texture coordinates for masked object
-                let (tx, ty) = calc_tex_coord(local_masked_point, masked_pos, masked_size, masked_tex_size);
+                // Calculate texture coordinate in the masked object - use clamping to avoid edge issues
+                let safe_size_x = if masked_size.x < 0.001 { 0.001 } else { masked_size.x };
+                let safe_size_y = if masked_size.y < 0.001 { 0.001 } else { masked_size.y };
+                
+                let norm_x = (local_masked_point.x - masked_pos.x) / safe_size_x;
+                let norm_y = (local_masked_point.y - masked_pos.y) / safe_size_y;
+                
+                let clamped_x = norm_x.max(0.0).min(0.999);
+                let clamped_y = norm_y.max(0.0).min(0.999);
+                
+                let tx = (clamped_x * masked_tex_size.x) as usize;
+                let ty = (clamped_y * masked_tex_size.y) as usize;
                 
                 // Check if pixel is opaque in masked object
                 let idx = ty * masked_tex_size.x as usize + tx;
-                let is_opaque = is_mask_bit_set(&mask, idx).unwrap_or(false);
                 
-                if !is_opaque {
+                // Ensure we don't access outside the array bounds
+                if idx / 8 >= mask.len() {
                     return false;
                 }
                 
-                // For the solid object, check if the point is inside its rotated bounds
-                let local_other_point = rotate_point(world_point, other_center, -other_angle);
-                let in_other_bounds = is_point_in_bounds(local_other_point, other_pos, other_size);
+                let mask_byte = mask[idx / 8];
+                let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
                 
-                is_opaque && in_other_bounds
+                if mask_bit == 0 {
+                    return false; // Transparent pixel, no collision
+                }
+                
+                // For the solid object, check if the point is inside its rotated bounds
+                // Transform to other object's local space
+                let local_other_point = rotate_point(world_point, other_center, -other_angle);
+                
+                // Check if point is within other object's bounds
+                let in_other_bounds = local_other_point.x >= other_pos.x && 
+                                     local_other_point.x < other_pos.x + other_size.x &&
+                                     local_other_point.y >= other_pos.y && 
+                                     local_other_point.y < other_pos.y + other_size.y;
+                
+                // If the point is inside both objects, we have a collision
+                mask_bit == 1 && in_other_bounds
             })
         });
     }
@@ -395,26 +475,55 @@ fn check_one_rotated_masked_collision(
                 let local_masked_point = rotate_point(world_point, masked_center, -masked_angle);
                 
                 // Check if point is within masked object's bounds
-                if !is_point_in_bounds(local_masked_point, masked_pos, masked_size) {
+                let in_masked_bounds = local_masked_point.x >= masked_pos.x && 
+                                      local_masked_point.x < masked_pos.x + masked_size.x &&
+                                      local_masked_point.y >= masked_pos.y && 
+                                      local_masked_point.y < masked_pos.y + masked_size.y;
+                
+                if !in_masked_bounds {
                     continue;
                 }
                 
-                // Calculate texture coordinates for masked object
-                let (tx, ty) = calc_tex_coord(local_masked_point, masked_pos, masked_size, masked_tex_size);
+                // Calculate texture coordinate in the masked object - use clamping to avoid edge issues
+                let safe_size_x = if masked_size.x < 0.001 { 0.001 } else { masked_size.x };
+                let safe_size_y = if masked_size.y < 0.001 { 0.001 } else { masked_size.y };
+                
+                let norm_x = (local_masked_point.x - masked_pos.x) / safe_size_x;
+                let norm_y = (local_masked_point.y - masked_pos.y) / safe_size_y;
+                
+                let clamped_x = norm_x.max(0.0).min(0.999);
+                let clamped_y = norm_y.max(0.0).min(0.999);
+                
+                let tx = (clamped_x * masked_tex_size.x) as usize;
+                let ty = (clamped_y * masked_tex_size.y) as usize;
                 
                 // Check if pixel is opaque in masked object
                 let idx = ty * masked_tex_size.x as usize + tx;
-                let is_opaque = is_mask_bit_set(&mask, idx).unwrap_or(false);
                 
-                if !is_opaque {
+                // Ensure we don't access outside the array bounds
+                if idx / 8 >= mask.len() {
                     continue;
                 }
                 
-                // For the solid object, check if the point is inside its rotated bounds
-                let local_other_point = rotate_point(world_point, other_center, -other_angle);
-                let in_other_bounds = is_point_in_bounds(local_other_point, other_pos, other_size);
+                let mask_byte = mask[idx / 8];
+                let mask_bit = (mask_byte >> (7 - (idx % 8))) & 1;
                 
-                if is_opaque && in_other_bounds {
+                if mask_bit == 0 {
+                    continue; // Transparent pixel, no collision
+                }
+                
+                // For the solid object, check if the point is inside its rotated bounds
+                // Transform to other object's local space
+                let local_other_point = rotate_point(world_point, other_center, -other_angle);
+                
+                // Check if point is within other object's bounds
+                let in_other_bounds = local_other_point.x >= other_pos.x && 
+                                     local_other_point.x < other_pos.x + other_size.x &&
+                                     local_other_point.y >= other_pos.y && 
+                                     local_other_point.y < other_pos.y + other_size.y;
+                
+                // If the point is inside both objects, we have a collision
+                if mask_bit == 1 && in_other_bounds {
                     return true;
                 }
             }
@@ -499,25 +608,58 @@ where
                 let local_point2 = rotate_point(world_point, center2, -angle2); // Negative angle to reverse rotation
                 
                 // Check if the point is inside both objects' bounds
-                if !is_point_in_bounds(local_point1, pos1, size1) || 
-                   !is_point_in_bounds(local_point2, pos2, size2) {
-                    return false;
+                let in_bounds1 = local_point1.x >= pos1.x && local_point1.x < pos1.x + size1.x &&
+                                local_point1.y >= pos1.y && local_point1.y < pos1.y + size1.y;
+                
+                let in_bounds2 = local_point2.x >= pos2.x && local_point2.x < pos2.x + size2.x &&
+                                local_point2.y >= pos2.y && local_point2.y < pos2.y + size2.y;
+                
+                if !in_bounds1 || !in_bounds2 {
+                    return false; // Point is outside one of the objects' bounds
                 }
                 
-                // Calculate texture coordinates for both objects
-                let (tx1, ty1) = calc_tex_coord(local_point1, pos1, size1, texture1_size);
-                let (tx2, ty2) = calc_tex_coord(local_point2, pos2, size2, texture2_size);
+                // Convert to texture coordinates with safety checks
+                let safe_size1_x = if size1.x < 0.001 { 0.001 } else { size1.x };
+                let safe_size1_y = if size1.y < 0.001 { 0.001 } else { size1.y };
                 
-                // Calculate indices in mask arrays
+                let norm_x1 = (local_point1.x - pos1.x) / safe_size1_x;
+                let norm_y1 = (local_point1.y - pos1.y) / safe_size1_y;
+                
+                let clamped_x1 = norm_x1.max(0.0).min(0.999);
+                let clamped_y1 = norm_y1.max(0.0).min(0.999);
+                
+                let tx1 = (clamped_x1 * texture1_size.x) as usize;
+                let ty1 = (clamped_y1 * texture1_size.y) as usize;
+                
+                let safe_size2_x = if size2.x < 0.001 { 0.001 } else { size2.x };
+                let safe_size2_y = if size2.y < 0.001 { 0.001 } else { size2.y };
+                
+                let norm_x2 = (local_point2.x - pos2.x) / safe_size2_x;
+                let norm_y2 = (local_point2.y - pos2.y) / safe_size2_y;
+                
+                let clamped_x2 = norm_x2.max(0.0).min(0.999);
+                let clamped_y2 = norm_y2.max(0.0).min(0.999);
+                
+                let tx2 = (clamped_x2 * texture2_size.x) as usize;
+                let ty2 = (clamped_y2 * texture2_size.y) as usize;
+                
+                // Get the pixel values from the transparency masks
                 let idx1 = ty1 * texture1_size.x as usize + tx1;
                 let idx2 = ty2 * texture2_size.x as usize + tx2;
                 
-                // Check both mask bits
-                let mask1_bit = is_mask_bit_set(&mask1, idx1).unwrap_or(false);
-                let mask2_bit = is_mask_bit_set(&mask2, idx2).unwrap_or(false);
+                // Ensure we don't access outside the array bounds
+                if idx1 / 8 >= mask1.len() || idx2 / 8 >= mask2.len() {
+                    return false;
+                }
+                
+                // Check the corresponding bit for both masks
+                let mask1_byte = mask1[idx1 / 8];
+                let mask2_byte = mask2[idx2 / 8];
+                let mask1_bit = (mask1_byte >> (7 - (idx1 % 8))) & 1;
+                let mask2_bit = (mask2_byte >> (7 - (idx2 % 8))) & 1;
                 
                 // If both bits are set, we have a collision at this pixel
-                mask1_bit && mask2_bit
+                mask1_bit == 1 && mask2_bit == 1
             })
         });
     }
@@ -537,25 +679,58 @@ where
                 let local_point2 = rotate_point(world_point, center2, -angle2); // Negative angle to reverse rotation
                 
                 // Check if the point is inside both objects' bounds
-                if !is_point_in_bounds(local_point1, pos1, size1) || 
-                   !is_point_in_bounds(local_point2, pos2, size2) {
-                    continue;
+                let in_bounds1 = local_point1.x >= pos1.x && local_point1.x < pos1.x + size1.x &&
+                                local_point1.y >= pos1.y && local_point1.y < pos1.y + size1.y;
+                
+                let in_bounds2 = local_point2.x >= pos2.x && local_point2.x < pos2.x + size2.x &&
+                                local_point2.y >= pos2.y && local_point2.y < pos2.y + size2.y;
+                
+                if !in_bounds1 || !in_bounds2 {
+                    continue; // Point is outside one of the objects' bounds
                 }
                 
-                // Calculate texture coordinates for both objects
-                let (tx1, ty1) = calc_tex_coord(local_point1, pos1, size1, texture1_size);
-                let (tx2, ty2) = calc_tex_coord(local_point2, pos2, size2, texture2_size);
+                // Convert to texture coordinates with safety checks
+                let safe_size1_x = if size1.x < 0.001 { 0.001 } else { size1.x };
+                let safe_size1_y = if size1.y < 0.001 { 0.001 } else { size1.y };
                 
-                // Calculate indices in mask arrays
+                let norm_x1 = (local_point1.x - pos1.x) / safe_size1_x;
+                let norm_y1 = (local_point1.y - pos1.y) / safe_size1_y;
+                
+                let clamped_x1 = norm_x1.max(0.0).min(0.999);
+                let clamped_y1 = norm_y1.max(0.0).min(0.999);
+                
+                let tx1 = (clamped_x1 * texture1_size.x) as usize;
+                let ty1 = (clamped_y1 * texture1_size.y) as usize;
+                
+                let safe_size2_x = if size2.x < 0.001 { 0.001 } else { size2.x };
+                let safe_size2_y = if size2.y < 0.001 { 0.001 } else { size2.y };
+                
+                let norm_x2 = (local_point2.x - pos2.x) / safe_size2_x;
+                let norm_y2 = (local_point2.y - pos2.y) / safe_size2_y;
+                
+                let clamped_x2 = norm_x2.max(0.0).min(0.999);
+                let clamped_y2 = norm_y2.max(0.0).min(0.999);
+                
+                let tx2 = (clamped_x2 * texture2_size.x) as usize;
+                let ty2 = (clamped_y2 * texture2_size.y) as usize;
+                
+                // Get the pixel values from the transparency masks
                 let idx1 = ty1 * texture1_size.x as usize + tx1;
                 let idx2 = ty2 * texture2_size.x as usize + tx2;
                 
-                // Check both mask bits
-                let mask1_bit = is_mask_bit_set(&mask1, idx1).unwrap_or(false);
-                let mask2_bit = is_mask_bit_set(&mask2, idx2).unwrap_or(false);
+                // Ensure we don't access outside the array bounds
+                if idx1 / 8 >= mask1.len() || idx2 / 8 >= mask2.len() {
+                    continue;
+                }
+                
+                // Check the corresponding bit for both masks
+                let mask1_byte = mask1[idx1 / 8];
+                let mask2_byte = mask2[idx2 / 8];
+                let mask1_bit = (mask1_byte >> (7 - (idx1 % 8))) & 1;
+                let mask2_bit = (mask2_byte >> (7 - (idx2 % 8))) & 1;
                 
                 // If both bits are set, we have a collision at this pixel
-                if mask1_bit && mask2_bit {
+                if mask1_bit == 1 && mask2_bit == 1 {
                     return true;
                 }
             }
@@ -674,7 +849,7 @@ fn check_rotated_rectangle_collision(
     true
 }
 
-// Helper function to rotate a point around a center point
+// New helper function to rotate a point around a center point
 fn rotate_point(point: Vec2, center: Vec2, angle: f32) -> Vec2 {
     // Early return for zero angle to avoid unnecessary calculations
     if angle == 0.0 {
