@@ -36,6 +36,11 @@ APPEARANCE CUSTOMIZATION:
     // Set prompt text and color (shown when input is empty)
     txt_input.set_prompt("Enter your name...");
     txt_input.set_prompt_color(DARKGRAY);
+
+    // Enable or disable the text input
+    txt_input.set_enabled(false); // Disable the text input (becomes read-only)
+    txt_input.set_enabled(true);  // Enable the text input
+    txt_input.set_disabled_color(Color::new(0.7, 0.7, 0.7, 0.5)); // Customize disabled appearance
     
 TEXT MANIPULATION:
     // Get current text
@@ -51,6 +56,12 @@ TEXT MANIPULATION:
     
     // Set cursor position
     txt_input.set_cursor_index(5);
+
+    // Customize key repeat behavior (for arrow keys, backspace, delete)
+    txt_input.set_key_repeat_delay(0.3);    // Initial delay before key repeat starts (seconds)
+    txt_input.set_key_repeat_rate(0.03);    // Time between repeats after initial delay (seconds)
+    // Or set both at once
+    txt_input.with_key_repeat_settings(0.3, 0.03);
 
 Then in the main loop you would use:
     // Update and draw the textbox in one step
@@ -82,6 +93,8 @@ pub struct TextInput {
     key_repeat_rate: f32,   // How often the key repeats after initial delay (in seconds) 
     key_repeat_timer: f32,  // Timer to track key repeat
     last_key: Option<KeyCode>, // Track the last key that was pressed
+    enabled: bool,          // Controls whether the text input can be interacted with
+    disabled_color: Color,  // Color used when the text input is disabled
 }
 
 impl TextInput {
@@ -109,6 +122,8 @@ impl TextInput {
             key_repeat_rate: 0.05, // 50ms between repeats after initial delay
             key_repeat_timer: 0.0,
             last_key: None,
+            enabled: true, // Default to enabled
+            disabled_color: Color::new(0.7, 0.7, 0.7, 0.5), // Semi-transparent gray for disabled state
         }
     }
     
@@ -359,6 +374,32 @@ impl TextInput {
         self
     }
 
+    // Enable/disable functionality
+    #[allow(unused)]
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    #[allow(unused)]
+    pub fn set_enabled(&mut self, enabled: bool) -> &mut Self {
+        self.enabled = enabled;
+        if !enabled {
+            self.active = false; // Deactivate if disabled
+        }
+        self
+    }
+    
+    #[allow(unused)]
+    pub fn get_disabled_color(&self) -> Color {
+        self.disabled_color
+    }
+    
+    #[allow(unused)]
+    pub fn set_disabled_color(&mut self, color: Color) -> &mut Self {
+        self.disabled_color = color;
+        self
+    }
+
     // Primary method - both updates and draws the textbox
     #[allow(unused)]
     pub fn draw(&mut self) {
@@ -380,6 +421,13 @@ impl TextInput {
 
     // Now private - internal implementation only
     fn update_internal(&mut self) {
+        // Skip all interaction if disabled
+        if !self.enabled {
+            self.active = false;
+            self.cursor_visible = false;
+            return;
+        }
+
         if is_mouse_button_pressed(MouseButton::Left) {
             let (mx, my) = mouse_position();
             self.active = mx >= self.x && mx <= self.x + self.width && my >= self.y && my <= self.y + self.height;
@@ -522,10 +570,18 @@ impl TextInput {
         let text_x = self.x + padding;
         let text_y = self.y + self.height / 2.0 + self.font_size / 2.5;
     
-        // Draw the background and border with customizable colors
-        draw_rectangle(self.x, self.y, self.width, self.height, self.background_color);
+        // Draw the background with customizable colors (or disabled color when disabled)
+        if self.enabled {
+            draw_rectangle(self.x, self.y, self.width, self.height, self.background_color);
+        } else {
+            // Use the disabled color for the background when disabled
+            draw_rectangle(self.x, self.y, self.width, self.height, self.disabled_color);
+        }
         
-        // Draw text with the appropriate font
+        // Draw text with the appropriate font and color based on enabled state
+        let text_color = if self.enabled { self.text_color } else { GRAY };
+        let prompt_color = if self.enabled { self.prompt_color } else { GRAY };
+        
         if self.text.is_empty() {
             if let Some(prompt) = &self.prompt {
                 match &self.font {
@@ -537,13 +593,13 @@ impl TextInput {
                             TextParams {
                                 font: Some(font),
                                 font_size: self.font_size as u16,
-                                color: self.prompt_color,
+                                color: prompt_color,
                                 ..Default::default()
                             },
                         );
                     },
                     None => {
-                        draw_text(prompt, text_x, text_y, self.font_size, self.prompt_color);
+                        draw_text(prompt, text_x, text_y, self.font_size, prompt_color);
                     }
                 }
             }
@@ -557,18 +613,19 @@ impl TextInput {
                         TextParams {
                             font: Some(font),
                             font_size: self.font_size as u16,
-                            color: self.text_color,
+                            color: text_color,
                             ..Default::default()
                         },
                     );
                 },
                 None => {
-                    draw_text(&self.text, text_x, text_y, self.font_size, self.text_color);
+                    draw_text(&self.text, text_x, text_y, self.font_size, text_color);
                 }
             }
         }
     
-        if self.active && self.cursor_visible {
+        // Only show cursor if enabled and active
+        if self.enabled && self.active && self.cursor_visible {
             let mut cursor_offset = 0.0;
             if self.cursor_index > 0 {
                 let cursor_text = &self.text[..self.cursor_index];
@@ -602,7 +659,8 @@ impl TextInput {
         }
     
         // Draw the border with customizable color
-        draw_rectangle_lines(self.x, self.y, self.width, self.height, 2.0, self.border_color);
+        let border_color = if self.enabled { self.border_color } else { GRAY };
+        draw_rectangle_lines(self.x, self.y, self.width, self.height, 2.0, border_color);
     }
 }
 
