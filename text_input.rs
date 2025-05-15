@@ -77,6 +77,11 @@ pub struct TextInput {
     font: Option<Font>,
     prompt: Option<String>, // New field for prompt text
     prompt_color: Color,    // Color for the prompt text
+    // Add key repeat functionality
+    key_repeat_delay: f32,  // Initial delay before key starts repeating (in seconds)
+    key_repeat_rate: f32,   // How often the key repeats after initial delay (in seconds) 
+    key_repeat_timer: f32,  // Timer to track key repeat
+    last_key: Option<KeyCode>, // Track the last key that was pressed
 }
 
 impl TextInput {
@@ -99,6 +104,11 @@ impl TextInput {
             font: None, // Default to None (use system font)
             prompt: None, // Default to None (no prompt text)
             prompt_color: GRAY, // Default color for prompt text
+            // Initialize key repeat values
+            key_repeat_delay: 0.4, // 400ms initial delay before repeat
+            key_repeat_rate: 0.05, // 50ms between repeats after initial delay
+            key_repeat_timer: 0.0,
+            last_key: None,
         }
     }
     
@@ -318,6 +328,37 @@ impl TextInput {
         self
     }
 
+    // Key repeat settings getters/setters
+    #[allow(unused)]
+    pub fn get_key_repeat_delay(&self) -> f32 {
+        self.key_repeat_delay
+    }
+
+    #[allow(unused)]
+    pub fn set_key_repeat_delay(&mut self, delay: f32) -> &mut Self {
+        self.key_repeat_delay = delay;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn get_key_repeat_rate(&self) -> f32 {
+        self.key_repeat_rate
+    }
+
+    #[allow(unused)]
+    pub fn set_key_repeat_rate(&mut self, rate: f32) -> &mut Self {
+        self.key_repeat_rate = rate;
+        self
+    }
+
+    // Convenience method to set both key repeat values at once
+    #[allow(unused)]
+    pub fn with_key_repeat_settings(&mut self, delay: f32, rate: f32) -> &mut Self {
+        self.key_repeat_delay = delay;
+        self.key_repeat_rate = rate;
+        self
+    }
+
     // Primary method - both updates and draws the textbox
     #[allow(unused)]
     pub fn draw(&mut self) {
@@ -384,34 +425,87 @@ impl TextInput {
                 }
             }
     
-            // Handle Delete
-            if is_key_pressed(KeyCode::Delete) && self.cursor_index < self.text.len() {
+            // Initial key presses
+            let key_delete_pressed = is_key_pressed(KeyCode::Delete);
+            let key_backspace_pressed = is_key_pressed(KeyCode::Backspace);
+            let key_left_pressed = is_key_pressed(KeyCode::Left);
+            let key_right_pressed = is_key_pressed(KeyCode::Right);
+            
+            // Handle initial key presses
+            if key_delete_pressed && self.cursor_index < self.text.len() {
                 if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
                     let char_len = c.len_utf8();
                     self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
                 }
-            }
-    
-            // Handle Backspace
-            if is_key_pressed(KeyCode::Backspace) && self.cursor_index > 0 {
+                self.last_key = Some(KeyCode::Delete);
+                self.key_repeat_timer = 0.0;
+            } else if key_backspace_pressed && self.cursor_index > 0 {
                 if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
                     self.text.replace_range(prev_offset..self.cursor_index, "");
                     self.cursor_index = prev_offset;
                 }
-            }
-    
-            // Handle Arrow Keys (Left and Right)
-            if is_key_pressed(KeyCode::Left) && self.cursor_index > 0 {
+                self.last_key = Some(KeyCode::Backspace);
+                self.key_repeat_timer = 0.0;
+            } else if key_left_pressed && self.cursor_index > 0 {
                 let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
                 let char_len = prev_char.len_utf8();
                 self.cursor_index -= char_len;
-            }
-    
-            if is_key_pressed(KeyCode::Right) && self.cursor_index < self.text.len() {
+                self.last_key = Some(KeyCode::Left);
+                self.key_repeat_timer = 0.0;
+            } else if key_right_pressed && self.cursor_index < self.text.len() {
                 let next_char = self.text[self.cursor_index..].chars().next().unwrap();
                 let char_len = next_char.len_utf8();
                 self.cursor_index += char_len;
+                self.last_key = Some(KeyCode::Right);
+                self.key_repeat_timer = 0.0;
             }
+
+            // Handle key repeat functionality
+            if let Some(key) = self.last_key {
+                if is_key_down(key) {
+                    self.key_repeat_timer += get_frame_time();
+                    if self.key_repeat_timer >= self.key_repeat_delay {
+                        self.key_repeat_timer -= self.key_repeat_rate;
+                        match key {
+                            KeyCode::Left => {
+                                if self.cursor_index > 0 {
+                                    let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
+                                    let char_len = prev_char.len_utf8();
+                                    self.cursor_index -= char_len;
+                                }
+                            }
+                            KeyCode::Right => {
+                                if self.cursor_index < self.text.len() {
+                                    let next_char = self.text[self.cursor_index..].chars().next().unwrap();
+                                    let char_len = next_char.len_utf8();
+                                    self.cursor_index += char_len;
+                                }
+                            }
+                            KeyCode::Delete => {
+                                if self.cursor_index < self.text.len() {
+                                    if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
+                                        let char_len = c.len_utf8();
+                                        self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
+                                    }
+                                }
+                            }
+                            KeyCode::Backspace => {
+                                if self.cursor_index > 0 {
+                                    if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
+                                        self.text.replace_range(prev_offset..self.cursor_index, "");
+                                        self.cursor_index = prev_offset;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                } else {
+                    self.last_key = None;
+                    self.key_repeat_timer = 0.0;
+                }
+            }
+
             self.cursor_timer += get_frame_time();
             if self.cursor_timer >= 0.5 {
                 self.cursor_visible = !self.cursor_visible;
@@ -420,7 +514,6 @@ impl TextInput {
         } else {
             self.cursor_visible = false; 
         }
-        
     }
     
     // Now private - internal implementation only
