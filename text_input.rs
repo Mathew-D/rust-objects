@@ -33,6 +33,10 @@ APPEARANCE CUSTOMIZATION:
     txt_input.set_position(150.0, 150.0);
     txt_input.set_dimensions(250.0, 50.0);
     
+    // Set prompt text and color (shown when input is empty)
+    txt_input.set_prompt("Enter your name...");
+    txt_input.set_prompt_color(DARKGRAY);
+    
 TEXT MANIPULATION:
     // Get current text
     let current_text = txt_input.get_text();
