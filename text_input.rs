@@ -71,6 +71,8 @@ pub struct TextInput {
     background_color: Color,
     cursor_color: Color,
     font: Option<Font>,
+    prompt: Option<String>, // New field for prompt text
+    prompt_color: Color,    // Color for the prompt text
 }
 
 impl TextInput {
@@ -91,6 +93,8 @@ impl TextInput {
             background_color: LIGHTGRAY, // Default color for background
             cursor_color: BLACK, // Default color for cursor
             font: None, // Default to None (use system font)
+            prompt: None, // Default to None (no prompt text)
+            prompt_color: GRAY, // Default color for prompt text
         }
     }
     
@@ -287,6 +291,29 @@ impl TextInput {
         self.font.as_ref()
     }
 
+    // Prompt text getters/setters
+    #[allow(unused)]
+    pub fn get_prompt(&self) -> Option<&String> {
+        self.prompt.as_ref()
+    }
+
+    #[allow(unused)]
+    pub fn set_prompt<T: Into<String>>(&mut self, prompt: T) -> &mut Self {
+        self.prompt = Some(prompt.into());
+        self
+    }
+
+    #[allow(unused)]
+    pub fn get_prompt_color(&self) -> Color {
+        self.prompt_color
+    }
+
+    #[allow(unused)]
+    pub fn set_prompt_color(&mut self, color: Color) -> &mut Self {
+        self.prompt_color = color;
+        self
+    }
+
     // Primary method - both updates and draws the textbox
     #[allow(unused)]
     pub fn draw(&mut self) {
@@ -402,22 +429,45 @@ impl TextInput {
         draw_rectangle(self.x, self.y, self.width, self.height, self.background_color);
         
         // Draw text with the appropriate font
-        match &self.font {
-            Some(font) => {
-                draw_text_ex(
-                    &self.text,
-                    text_x,
-                    text_y,
-                    TextParams {
-                        font: Some(font),
-                        font_size: self.font_size as u16,
-                        color: self.text_color,
-                        ..Default::default()
+        if self.text.is_empty() {
+            if let Some(prompt) = &self.prompt {
+                match &self.font {
+                    Some(font) => {
+                        draw_text_ex(
+                            prompt,
+                            text_x,
+                            text_y,
+                            TextParams {
+                                font: Some(font),
+                                font_size: self.font_size as u16,
+                                color: self.prompt_color,
+                                ..Default::default()
+                            },
+                        );
                     },
-                );
-            },
-            None => {
-                draw_text(&self.text, text_x, text_y, self.font_size, self.text_color);
+                    None => {
+                        draw_text(prompt, text_x, text_y, self.font_size, self.prompt_color);
+                    }
+                }
+            }
+        } else {
+            match &self.font {
+                Some(font) => {
+                    draw_text_ex(
+                        &self.text,
+                        text_x,
+                        text_y,
+                        TextParams {
+                            font: Some(font),
+                            font_size: self.font_size as u16,
+                            color: self.text_color,
+                            ..Default::default()
+                        },
+                    );
+                },
+                None => {
+                    draw_text(&self.text, text_x, text_y, self.font_size, self.text_color);
+                }
             }
         }
     
