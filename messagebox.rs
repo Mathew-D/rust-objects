@@ -6,7 +6,10 @@ Adds a message box (dialog) component for displaying messages and options to use
 In your mod.rs file located in the modules folder add the following to the end of the file
     pub mod messagebox;
     
-Then add the following with the use commands:
+For info boxs add the following with the use commands:
+use crate::modules::messagebox::MessageBox;
+
+or for comfirmation boxes use:
 use crate::modules::messagebox::{MessageBox, MessageBoxResult};
 
 QUICK EXAMPLES:
