@@ -1,7 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
-To import you need:
+May 16, 2025
 Adds a message box (dialog) component for displaying messages and options to users
 
 In your mod.rs file located in the modules folder add the following to the end of the file
@@ -10,51 +9,107 @@ In your mod.rs file located in the modules folder add the following to the end o
 Then add the following with the use commands:
 use crate::modules::messagebox::{MessageBox, MessageBoxResult};
 
-Then to use this you would put the following above the loop: 
-    // Create a simple message box with OK button
-    let mut info_box = MessageBox::new(
-        "Information",                   // Title
-        "Operation completed successfully!", // Message
-        vec!["OK"],                      // Buttons (just "OK" button)
-        None,                            // Default selected button (first one)
-        400.0, 200.0                     // Width, height
-    );
-    
-    // Show the message box when program starts (IMPORTANT!)
+QUICK EXAMPLES:
+
+1. SIMPLEST USAGE (just call this in your main loop)
+```rust
+// Create a message box (do this once, outside main loop)
+let mut info_box = MessageBox::info("Information", "Operation completed successfully!");
+info_box.show();  // Show it immediately or when needed
+
+// In your main loop, after drawing other elements:
+info_box.draw();  // That's it! No if statement needed for simple info dialogs
+
+// Show the dialog again when needed (e.g., on a key press)
+if is_key_pressed(KeyCode::I) {
     info_box.show();
-    
-    // Center the message box on screen
-    info_box.centered();
-    
-    // Or create a message box with multiple options
-    let mut confirm_box = MessageBox::new(
-        "Confirm Action",                // Title
-        "Do you want to save your progress?", // Message
-        vec!["Yes", "No", "Cancel"],     // Buttons
-        Some(0),                         // Default button (Yes)
-        400.0, 200.0                     // Width, height
-    );
-    
-    // Customize appearance
-    confirm_box.with_colors(
-        DARKBLUE,       // Title background
-        SKYBLUE,        // Dialog background
-        WHITE,          // Title text color
-        BLACK,          // Message text color
-        Color::new(0.0, 0.0, 0.0, 0.5)  // Modal overlay color
-    );
-    
-    // Set position
-    confirm_box.centered(); // Center in screen
-    
-    // Or manually position
-    confirm_box.set_position(100.0, 100.0);
-    
-    // Show with modal overlay (click blocker)
-    confirm_box.with_modal(true);
-    
-    // Make sure to show the message box when you want it to appear
-    confirm_box.show();
+}
+```
+
+2. Other message box types
+```rust
+// Confirmation dialog with Yes/No buttons
+let mut confirm_box = MessageBox::confirm(
+    "Confirm Action",
+    "Do you want to save your progress?"
+);
+
+// Dialog with Yes/No/Cancel buttons
+let mut save_dialog = MessageBox::confirm_with_cancel(
+    "Save Game",
+    "Would you like to save your progress?"
+);
+
+// Custom dialog with specific buttons
+let mut custom_dialog = MessageBox::custom(
+    "Choose Difficulty",
+    "Select game difficulty:",
+    vec!["Easy", "Normal", "Hard", "Extreme"],
+    Some(1)  // Default to "Normal"
+);
+```
+
+3. Handling the result in the main loop (when you need to know which button was clicked)
+```rust
+// Inside the game loop, after drawing other elements:
+if let Some(result) = confirm_box.draw() {
+    // Only runs when a button was clicked or dialog was closed
+    match result {
+        MessageBoxResult::ButtonPressed(0) => {
+            // "Yes" button pressed
+            save_game();
+        },
+        MessageBoxResult::ButtonPressed(1) => {
+            // "No" button pressed
+            // Continue without saving...
+        },
+        MessageBoxResult::ButtonPressed(2) => {
+            // "Cancel" button pressed (for confirm_with_cancel dialogs)
+            // Handle cancel operation...
+        },
+        #[allow(unused)]
+        MessageBoxResult::ButtonPressed(_) => {
+            // IMPORTANT: This catch-all pattern is required by the Rust compiler
+            // even for simple confirm dialogs to ensure all possible values are covered
+        },
+        MessageBoxResult::Closed => {
+            // Dialog closed with X or Escape key
+            // Handle as cancel...
+        }
+    }
+}
+```
+
+4. Customizing appearance
+```rust
+let mut dialog = MessageBox::info("Custom Style", "This dialog has custom colors");
+dialog.with_colors(
+    DARKBLUE,                   // Title background
+    SKYBLUE,                    // Dialog background
+    WHITE,                      // Title text
+    BLACK,                      // Message text
+    Color::new(0.0, 0.0, 0.0, 0.5)  // Modal overlay color
+);
+
+// Custom font and font sizes
+// Load font in an async context
+let font = load_ttf_font_from_bytes(include_bytes!("path/to/your/font.ttf"))
+    .expect("Failed to load font");
+dialog.with_font(font);
+dialog.with_font_sizes(24.0, 18.0, 16.0);  // Title, message, and button sizes
+
+// Custom button colors
+dialog.with_button_colors(
+    LIGHTGRAY,          // Normal button color
+    SKYBLUE,            // Button hover/selected color
+    BLACK               // Button text color
+);
+```
+
+IMPORTANT NOTES:
+- Make sure to call draw() AFTER drawing other elements in your main loop
+- Don't call .show() inside the main loop unless in response to an event (like a key press)
+- The dialog automatically hides when a button is clicked or it's closed
 
 Then inside the loop, MOST IMPORTANTLY, make sure to draw the message box AFTER 
 clearing the background and drawing other elements:
@@ -64,32 +119,31 @@ clearing the background and drawing other elements:
     draw_your_other_elements();
 
     
-    // LAST: Update and draw the message box if visible
-    if let Some(result) = confirm_box.update_and_draw() {
+    // LAST: Use draw for the message box (it handles everything!)
+    
+    // For simple info dialogs, just call draw without an if statement:
+    info_box.draw();
+    
+    // For dialogs where you need to know which button was clicked:
+    if let Some(result) = confirm_box.draw() {
         match result {
             MessageBoxResult::ButtonPressed(0) => {
                 // "Yes" button was pressed
                 // Save game...
-                confirm_box.hide(); // Hide the dialog after handling result
+                // No need to call hide() - it's done automatically
             },
             MessageBoxResult::ButtonPressed(1) => {
                 // "No" button was pressed
                 // Continue without saving...
-                confirm_box.hide();
             },
-            MessageBoxResult::ButtonPressed(2) => {
-                // "Cancel" button was pressed
-                // Abort operation...
-                confirm_box.hide();
-            },
+            #[allow(unused)]
             MessageBoxResult::ButtonPressed(_) => {
-                // Handle any other button presses
-                confirm_box.hide();
+                // IMPORTANT: This catch-all is required even for confirm dialogs
+                // The Rust compiler needs this to ensure all cases are handled
             },
             MessageBoxResult::Closed => {
                 // Dialog was closed with X or Escape key
                 // Handle as cancel...
-                confirm_box.hide();
             }
         }
     }
@@ -97,14 +151,18 @@ clearing the background and drawing other elements:
     // Show message box again when a key is pressed
     if is_key_pressed(KeyCode::S) {
         confirm_box.show();
-        confirm_box.centered(); // Re-center in case window was resized
     }
     
+IMPORTANT NOTES:
+- Make sure to call draw() AFTER drawing other elements in your main loop
+- Don't call .show() inside the main loop unless in response to an event (like a key press)
+- The dialog automatically hides when a button is clicked or it's closed
+- Buttons change color and show a highlighted border when hovered for better visual feedback
+
 TROUBLESHOOTING:
 - If the message box doesn't appear, make sure you called .show() on it
-- Make sure update_and_draw() is called AFTER drawing other elements
-- Don't call .show() inside the main loop unless in response to an event
-- Make sure to handle all possible MessageBoxResult variants in your match statement
+- Make sure draw() is called AFTER drawing other elements
+- If you want to show the dialog again after it was closed, call .show() again
 */
 
 use macroquad::prelude::*;
@@ -144,6 +202,11 @@ pub struct MessageBox {
     dragging: bool,
     drag_offset_x: f32,
     drag_offset_y: f32,
+    // Additional fields for font options
+    font: Option<Font>,
+    title_font_size: f32,
+    message_font_size: f32,
+    button_font_size: f32,
 }
 
 impl MessageBox {
@@ -184,7 +247,7 @@ impl MessageBox {
             title_text_color: WHITE,
             message_text_color: BLACK,
             button_bg_color: LIGHTGRAY,
-            button_hover_color: GRAY,
+            button_hover_color: SKYBLUE, // Default hover color for better visibility
             button_text_color: BLACK,
             close_button_size: 20.0,
             show_close_button: true,
@@ -194,6 +257,10 @@ impl MessageBox {
             dragging: false,
             drag_offset_x: 0.0,
             drag_offset_y: 0.0,
+            font: None,
+            title_font_size: 18.0,
+            message_font_size: 16.0,
+            button_font_size: 16.0,
         }
     }
     
@@ -205,7 +272,7 @@ impl MessageBox {
     }
     
     // Set dialog position
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn set_position(&mut self, x: f32, y: f32) -> &mut Self {
         self.x = x;
         self.y = y;
@@ -213,7 +280,7 @@ impl MessageBox {
     }
     
     // Set dialog size
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn set_size(&mut self, width: f32, height: f32) -> &mut Self {
         self.width = width;
         self.height = height;
@@ -221,7 +288,7 @@ impl MessageBox {
     }
     
     // Customize colors
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_colors(
         &mut self,
         title_bg: Color,
@@ -239,7 +306,7 @@ impl MessageBox {
     }
     
     // Customize button colors
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_button_colors(
         &mut self,
         button_bg: Color,
@@ -253,16 +320,32 @@ impl MessageBox {
     }
     
     // Configure modal overlay
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_modal(&mut self, modal: bool) -> &mut Self {
         self.modal = modal;
         self
     }
     
     // Configure close button
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn with_close_button(&mut self, show: bool) -> &mut Self {
         self.show_close_button = show;
+        self
+    }
+    
+    // Set custom font
+    #[allow(unused)]
+    pub fn with_font(&mut self, font: Font) -> &mut Self {
+        self.font = Some(font);
+        self
+    }
+    
+    // Set font sizes
+    #[allow(unused)]
+    pub fn with_font_sizes(&mut self, title_size: f32, message_size: f32, button_size: f32) -> &mut Self {
+        self.title_font_size = title_size;
+        self.message_font_size = message_size; 
+        self.button_font_size = button_size;
         self
     }
     
@@ -271,6 +354,12 @@ impl MessageBox {
         self.visible = true;
         self.result = None;
         self.selected_button = self.default_button;
+        self.dragging = false; // Reset dragging state for clean start
+        
+        // Auto center the dialog whenever it's shown
+        // This ensures proper placement even if the window was resized
+        self.centered();
+        
         self
     }
     
@@ -280,25 +369,60 @@ impl MessageBox {
         self.result = None;
         self
     }
-    
+    #[allow(unused)]
     // Check if dialog is visible
     pub fn is_visible(&self) -> bool {
         self.visible
     }
     
     // Get the last result
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_result(&self) -> Option<&MessageBoxResult> {
         self.result.as_ref()
     }
     
     // Clear the result
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn clear_result(&mut self) -> &mut Self {
         self.result = None;
         self
     }
     
+    /// Simple method for main game loop - just call this once per frame
+    /// This will handle both drawing and updating the message box
+    /// Returns Some(result) only when a button is clicked or the dialog is closed
+    /// 
+    /// Example usage in main loop:
+    /// ```
+    /// // In main loop:
+    /// if let Some(result) = message_box.draw() {
+    ///     match result {
+    ///         MessageBoxResult::ButtonPressed(0) => {
+    ///             // OK button pressed
+    ///             println!("OK clicked!");
+    ///         },
+    ///         #[allow(unused)]
+    ///         _ => {}
+    ///     }
+    /// }
+    /// ```
+    pub fn draw(&mut self) -> Option<MessageBoxResult> {
+        // Don't do anything if not visible
+        if !self.visible {
+            return None;
+        }
+        
+        // First, draw and update the message box
+        let result = self.update_and_draw();
+        
+        // If we got a result, hide the dialog automatically
+        if result.is_some() {
+            self.hide();
+        }
+        
+        result
+    }
+       
     // Update and draw the message box, returning a result if a button was clicked
     pub fn update_and_draw(&mut self) -> Option<MessageBoxResult> {
         if !self.visible {
@@ -308,6 +432,17 @@ impl MessageBox {
         // Draw modal background if enabled
         if self.modal {
             draw_rectangle(0.0, 0.0, screen_width(), screen_height(), self.modal_color);
+            
+            // Consume any mouse clicks outside the dialog
+            let mouse_in_dialog = self.is_mouse_over_rect(
+                self.x, self.y, self.width, self.height
+            );
+            
+            // If mouse is clicked outside dialog and modal is enabled, consume the event
+            if !mouse_in_dialog && is_mouse_button_pressed(MouseButton::Left) {
+                // Optional: make dialog flash or shake slightly to indicate it needs attention
+                // For now, we just consume the click
+            }
         }
         
         // Handle dragging
@@ -326,14 +461,17 @@ impl MessageBox {
         );
         
         // Draw title text
-        let title_font_size = 18.0;
-        let title_size = measure_text(&self.title, None, title_font_size as u16, 1.0);
-        draw_text(
+        let title_size = measure_text(&self.title, self.font.as_ref(), self.title_font_size as u16, 1.0);
+        draw_text_ex(
             &self.title,
             self.x + self.padding,
             self.y + (self.title_height + title_size.height) / 2.0,
-            title_font_size,
-            self.title_text_color
+            TextParams {
+                font: self.font.as_ref(),
+                font_size: self.title_font_size as u16,
+                color: self.title_text_color,
+                ..Default::default()
+            }
         );
         
         // Draw close button if enabled
@@ -341,36 +479,22 @@ impl MessageBox {
             let close_x = self.x + self.width - self.close_button_size - self.padding;
             let close_y = self.y + (self.title_height - self.close_button_size) / 2.0;
             
-            // Check if mouse is over close button
-            let (mouse_x, mouse_y) = mouse_position();
-            let is_over_close = mouse_x >= close_x && mouse_x <= close_x + self.close_button_size &&
-                                mouse_y >= close_y && mouse_y <= close_y + self.close_button_size;
+            // Check if mouse is over close button using helper function
+            let is_over_close = self.is_mouse_over_rect(
+                close_x, close_y, self.close_button_size, self.close_button_size
+            );
             
-            // Draw close button (X)
-            let close_color = if is_over_close {
-                Color::new(1.0, 0.3, 0.3, 1.0) // Highlight red on hover
-            } else {
-                self.title_text_color
-            };
+            // Draw X symbol with appropriate color based on hover state
+            let close_color = self.get_hover_color(
+                is_over_close, 
+                self.title_text_color, 
+                Color::new(1.0, 0.3, 0.3, 1.0) // Bright red for hover
+            );
             
-            // Draw X symbol
+            // Draw X lines
             let thickness = 2.0;
-            draw_line(
-                close_x,
-                close_y,
-                close_x + self.close_button_size,
-                close_y + self.close_button_size,
-                thickness,
-                close_color
-            );
-            draw_line(
-                close_x,
-                close_y + self.close_button_size,
-                close_x + self.close_button_size,
-                close_y,
-                thickness,
-                close_color
-            );
+            draw_line(close_x, close_y, close_x + self.close_button_size, close_y + self.close_button_size, thickness, close_color);
+            draw_line(close_x, close_y + self.close_button_size, close_x + self.close_button_size, close_y, thickness, close_color);
             
             // Handle close button click
             if is_over_close && is_mouse_button_pressed(MouseButton::Left) {
@@ -380,26 +504,28 @@ impl MessageBox {
         }
         
         // Draw message
-        let message_font_size = 16.0;
         let message_y = self.y + self.title_height + self.padding;
         
         // Handle multiline messages
         let max_line_width = self.width - 2.0 * self.padding;
-        let lines = self.wrap_text(&self.message, max_line_width, message_font_size);
+        let lines = self.wrap_text(&self.message, max_line_width, self.message_font_size);
         
-        let line_height = message_font_size * 1.2;
+        let line_height = self.message_font_size * 1.2;
         for (i, line) in lines.iter().enumerate() {
-            draw_text(
+            draw_text_ex(
                 line,
                 self.x + self.padding,
-                message_y + i as f32 * line_height + message_font_size,
-                message_font_size,
-                self.message_text_color
+                message_y + i as f32 * line_height + self.message_font_size,
+                TextParams {
+                    font: self.font.as_ref(),
+                    font_size: self.message_font_size as u16,
+                    color: self.message_text_color,
+                    ..Default::default()
+                }
             );
         }
         
         // Draw buttons
-        let button_font_size = 16.0;
         let button_spacing = 10.0;
         let num_buttons = self.buttons.len();
         
@@ -413,7 +539,10 @@ impl MessageBox {
             let first_button_x = self.x + (self.width - total_button_width) / 2.0;
             let button_y = self.y + self.height - self.button_height - self.padding;
             
-            for (i, button_text) in self.buttons.iter().enumerate() {
+            // Collect button details for drawing
+            let mut button_details = Vec::with_capacity(num_buttons);
+            
+            for i in 0..num_buttons {
                 let button_width = if num_buttons == 1 {
                     self.width * 0.33 // Single button takes 1/3 of dialog width
                 } else {
@@ -423,55 +552,58 @@ impl MessageBox {
                 let button_x = first_button_x + i as f32 * (button_width + button_spacing);
                 
                 // Check if mouse is over this button
-                let (mouse_x, mouse_y) = mouse_position();
-                let is_over_button = mouse_x >= button_x && mouse_x <= button_x + button_width &&
-                                    mouse_y >= button_y && mouse_y <= button_y + self.button_height;
+                let is_over_button = self.is_mouse_over_rect(
+                    button_x, button_y, button_width, self.button_height
+                );
                 
-                // Highlight selected button
-                let button_color = if self.selected_button == Some(i) || is_over_button {
-                    self.button_hover_color
-                } else {
-                    self.button_bg_color
-                };
+                // Update selected button on hover for keyboard navigation
+                if is_over_button {
+                    self.selected_button = Some(i);
+                }
                 
-                // Draw button background
+                // Store button text and position details
+                button_details.push((
+                    i, 
+                    self.buttons[i].clone(), 
+                    button_x, 
+                    button_y, 
+                    button_width, 
+                    is_over_button
+                ));
+            }
+            
+            // Now draw all buttons and check for clicks
+            for (i, button_text, button_x, button_y, button_width, is_over_button) in button_details {
+                // Draw button with appropriate colors
                 draw_rectangle(
-                    button_x,
-                    button_y,
-                    button_width,
-                    self.button_height,
-                    button_color
+                    button_x, button_y, button_width, self.button_height,
+                    self.get_hover_color(is_over_button, self.button_bg_color, self.button_hover_color)
                 );
                 
-                // Draw button border
+                // Draw border
                 draw_rectangle_lines(
-                    button_x,
-                    button_y,
-                    button_width,
-                    self.button_height,
-                    1.0,
-                    DARKGRAY
+                    button_x, button_y, button_width, self.button_height, 1.0,
+                    self.get_hover_color(is_over_button, DARKGRAY, BLUE)
                 );
                 
-                // Draw button text
-                let text_size = measure_text(button_text, None, button_font_size as u16, 1.0);
-                draw_text(
-                    button_text,
+                // Draw text
+                let text_size = measure_text(&button_text, self.font.as_ref(), self.button_font_size as u16, 1.0);
+                draw_text_ex(
+                    &button_text,
                     button_x + (button_width - text_size.width) / 2.0,
                     button_y + (self.button_height + text_size.height) / 2.0,
-                    button_font_size,
-                    self.button_text_color
+                    TextParams {
+                        font: self.font.as_ref(),
+                        font_size: self.button_font_size as u16,
+                        color: self.get_hover_color(is_over_button, self.button_text_color, BLACK),
+                        ..Default::default()
+                    }
                 );
                 
                 // Handle button click
-                if is_over_button {
-                    if is_mouse_button_pressed(MouseButton::Left) {
-                        self.result = Some(MessageBoxResult::ButtonPressed(i));
-                        return self.result.clone();
-                    }
-                    
-                    // Update selected button on hover for keyboard navigation
-                    self.selected_button = Some(i);
+                if is_over_button && is_mouse_button_pressed(MouseButton::Left) {
+                    self.result = Some(MessageBoxResult::ButtonPressed(i));
+                    return self.result.clone();
                 }
             }
         }
@@ -505,13 +637,26 @@ impl MessageBox {
         self.result.clone()
     }
     
+    // Helper function to determine if mouse is over a rectangular area
+    fn is_mouse_over_rect(&self, rect_x: f32, rect_y: f32, rect_width: f32, rect_height: f32) -> bool {
+        let (mouse_x, mouse_y) = mouse_position();
+        mouse_x >= rect_x && mouse_x <= rect_x + rect_width &&
+        mouse_y >= rect_y && mouse_y <= rect_y + rect_height
+    }
+    
+    // Helper function to get hover color for any interactive element
+    fn get_hover_color(&self, is_hovered: bool, normal_color: Color, hover_color: Color) -> Color {
+        if is_hovered { hover_color } else { normal_color }
+    }
+    
     // Handle dialog dragging
     fn handle_dragging(&mut self) {
         let (mouse_x, mouse_y) = mouse_position();
         
-        // Check if mouse is in title bar area
-        let in_title_bar = mouse_x >= self.x && mouse_x <= self.x + self.width &&
-                           mouse_y >= self.y && mouse_y <= self.y + self.title_height;
+        // Check if mouse is in title bar area using our helper
+        let in_title_bar = self.is_mouse_over_rect(
+            self.x, self.y, self.width, self.title_height
+        );
         
         // Start dragging when clicking on title bar
         if in_title_bar && is_mouse_button_pressed(MouseButton::Left) {
@@ -549,7 +694,7 @@ impl MessageBox {
             };
             
             let test_line = format!("{}{}", current_line, word_with_space);
-            let test_width = measure_text(&test_line, None, font_size as u16, 1.0).width;
+            let test_width = measure_text(&test_line, self.font.as_ref(), font_size as u16, 1.0).width;
             
             if test_width <= max_width {
                 current_line = test_line;
@@ -571,5 +716,113 @@ impl MessageBox {
         }
         
         lines
+    }
+    
+    /// Show the dialog and return true when it has a result
+    /// This should be used when you want to wait for user input before proceeding
+    /// Example: 
+    /// ```
+    /// if !confirmation_box.is_active() {
+    ///     confirmation_box.show();
+    /// }
+    /// if let Some(result) = confirmation_box.get_result() {
+    ///     // Handle result
+    /// }
+    /// ```
+    #[allow(unused)]
+    pub fn is_active(&self) -> bool {
+        self.visible && self.result.is_none()
+    }
+    
+    /// Process the message box within game loop, returning true when processed
+    /// Usage example: if message_box.process() { /* handle result here */ }
+    #[allow(unused)]
+    pub fn process(&mut self) -> bool {
+        if let Some(result) = self.update_and_draw() {
+            self.hide();
+            self.result = Some(result);
+            true
+        } else {
+            false
+        }
+    }
+    
+    // Convenience functions for common dialog types
+    
+    /// Create an information dialog with just an OK button
+    #[allow(unused)]
+    pub fn info(title: impl Into<String>, message: impl Into<String>) -> Self {
+        let mut dialog = Self::new(
+            title,
+            message,
+            vec!["OK"],
+            Some(0),
+            400.0, 200.0
+        );
+        dialog.centered();
+        
+        // Set very obvious hover color for info box buttons - bright blue like the X turns bright red
+        dialog.button_hover_color = Color::new(0.3, 0.5, 1.0, 1.0); // Strong blue hover (more obvious)
+        dialog
+    }
+    
+    /// Create a yes/no confirmation dialog
+    /// 
+    /// This creates a dialog with two buttons: Yes (index 0) and No (index 1)
+    /// When handling results, you MUST include the catch-all pattern for full Rust pattern matching:
+    /// ```
+    /// match result {
+    ///     MessageBoxResult::ButtonPressed(0) => { /* Yes button */ },
+    ///     MessageBoxResult::ButtonPressed(1) => { /* No button */ },
+    ///     #[allow(unused)]
+    ///     MessageBoxResult::ButtonPressed(_) => { /* Required catch-all */ },
+    ///     MessageBoxResult::Closed => { /* X button or Escape key */ }
+    /// }
+    /// ```
+    #[allow(unused)]
+    pub fn confirm(title: impl Into<String>, message: impl Into<String>) -> Self {
+        let mut dialog = Self::new(
+            title,
+            message,
+            vec!["Yes", "No"],
+            Some(0), // Default to "Yes"
+            400.0, 200.0
+        );
+        dialog.centered();
+        dialog
+    }
+    
+    /// Create a dialog with yes/no/cancel options
+    /// 
+    /// This creates a dialog with three buttons: Yes (index 0), No (index 1), and Cancel (index 2)
+    /// You should handle all three button indices in your match statement.
+    #[allow(unused)]
+    pub fn confirm_with_cancel(title: impl Into<String>, message: impl Into<String>) -> Self {
+        let mut dialog = Self::new(
+            title,
+            message,
+            vec!["Yes", "No", "Cancel"],
+            Some(0), // Default to "Yes"
+            450.0, 200.0
+        );
+        dialog.centered();
+        dialog
+    }
+    
+    /// Create a custom dialog with the specified buttons
+    #[allow(unused)]
+    pub fn custom(title: impl Into<String>, message: impl Into<String>, buttons: Vec<impl Into<String>>, default_button: Option<usize>) -> Self {
+        let buttons: Vec<String> = buttons.into_iter().map(|b| b.into()).collect();
+        let width = (buttons.len() as f32 * 120.0).max(400.0);
+        
+        let mut dialog = Self::new(
+            title,
+            message,
+            buttons,
+            default_button,
+            width, 200.0
+        );
+        dialog.centered();
+        dialog
     }
 }
