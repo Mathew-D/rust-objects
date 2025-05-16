@@ -52,9 +52,6 @@ fn draw_grid_standard(grid_size: f32, color: Color) {
 // Scale-aware grid drawing function that respects virtual resolution
 #[cfg(feature = "scale")]
 fn draw_grid_with_scale(grid_size: f32, color: Color) {
-    // Get the current camera view dimensions from the camera set by the scale module
-    let (cam_x, cam_y, cam_w, cam_h) = camera_rect();
-    
     // When using virtual resolution, we draw grid based on the virtual dimensions
     // Get virtual dimensions from scale module
     if let Ok(resolution) = crate::modules::scale::VIRTUAL_RESOLUTION.try_with(|res| *res.borrow()) {
@@ -72,27 +69,7 @@ fn draw_grid_with_scale(grid_size: f32, color: Color) {
             draw_text(&format!("{}", y), 2.0, y as f32 + 12.0, 16.0, color);
         }
     } else {
-        // Fallback to camera-based grid if we can't access virtual resolution
-        // Calculate grid boundaries based on camera view
-        let start_x = cam_x as i32;
-        let end_x = (cam_x + cam_w) as i32;
-        let start_y = cam_y as i32;
-        let end_y = (cam_y + cam_h) as i32;
-        
-        // Adjust to grid size
-        let start_x = (start_x / grid_size as i32) * grid_size as i32;
-        let start_y = (start_y / grid_size as i32) * grid_size as i32;
-        
-        // Draw vertical lines and labels
-        for x in (start_x..=end_x).step_by(grid_size as usize) {
-            draw_line(x as f32, cam_y, x as f32, cam_y + cam_h, 1.0, color);
-            draw_text(&format!("{}", x), x as f32 + 2.0, cam_y + 12.0, 16.0, color);
-        }
-        
-        // Draw horizontal lines and labels
-        for y in (start_y..=end_y).step_by(grid_size as usize) {
-            draw_line(cam_x, y as f32, cam_x + cam_w, y as f32, 1.0, color);
-            draw_text(&format!("{}", y), cam_x + 2.0, y as f32 + 12.0, 16.0, color);
-        }
+        // Fallback to standard grid if we can't access virtual resolution
+        draw_grid_standard(grid_size, color);
     }
 }
