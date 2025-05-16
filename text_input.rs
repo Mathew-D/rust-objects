@@ -68,6 +68,8 @@ Then in the main loop you would use:
     txt_input.draw();
 */
 use macroquad::prelude::*;
+#[cfg(feature = "scale")]
+use crate::modules::scale::mouse_position_world as mouse_position;
 
 pub struct TextInput {
     // Make all fields private for complete encapsulation

@@ -149,6 +149,8 @@ IMPORTANT NOTES:
 */
 
 use macroquad::prelude::*;
+#[cfg(feature = "scale")]
+use crate::modules::scale::mouse_position_world as mouse_position;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MessageBoxResult {

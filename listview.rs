@@ -7,7 +7,6 @@ Adds a list view widget
 In your mod.rs file located in the modules folder add the following to the end of the file
         pub mod listview;
 
-
 Add with the other use statements
     use crate::modules::listview::ListView;
 
@@ -54,6 +53,8 @@ Then in the loop you would do:
 */
 
 use macroquad::prelude::*;
+#[cfg(feature = "scale")]
+use crate::modules::scale::mouse_position_world as mouse_position;
 
 pub struct ListView {
     items: Vec<String>,

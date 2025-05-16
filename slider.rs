@@ -51,6 +51,8 @@ Then inside the loop you would use:
 */
 
 use macroquad::prelude::*;
+#[cfg(feature = "scale")]
+use crate::modules::scale::mouse_position_world as mouse_position;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum SliderOrientation {

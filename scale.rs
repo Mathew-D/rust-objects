@@ -7,12 +7,15 @@ To import you need:
 
 In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod scale;
+In the Cargo.toml file add the following:
+    [features]
+    scale = []
+    default = ["scale"]
+
+Then in your main.rs file add the following to the top of the file:
     
 Then add the following with the use commands:
 use crate::modules::scale::use_virtual_resolution;
-
-In each of the modules that use the mouse position, you need to add the following:
-use crate::modules::scale::mouse_position_world as mouse_position;
 
 Usage examples:
 1. Setting up virtual resolution in your game loop:

@@ -29,6 +29,8 @@ if btn_image.click() {
 
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
+#[cfg(feature = "scale")]
+use crate::modules::scale::mouse_position_world as mouse_position;
 
 pub struct ImageButton {
     pub x: f32,
