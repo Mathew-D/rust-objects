@@ -46,8 +46,8 @@ thread_local! {
         ..Default::default()
     });
     
-    // We'll store the current virtual resolution here
-    static VIRTUAL_RESOLUTION: RefCell<(f32, f32)> = RefCell::new((1024.0, 768.0));
+    // We'll store the current virtual resolution here - made pub so other modules can access it
+    pub static VIRTUAL_RESOLUTION: RefCell<(f32, f32)> = RefCell::new((1024.0, 768.0));
 }
 
 /// Sets the camera to the virtual resolution and adjusts the scale
