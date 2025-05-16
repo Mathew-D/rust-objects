@@ -230,6 +230,35 @@ impl Label {
         
         self
     }
+     // Getter for width (fixed width or max content width)
+    #[allow(unused)]
+    pub fn get_width(&self) -> Option<f32> {
+        match self.fixed_width {
+            Some(width) => Some(width),
+            None => Some(self.cached_max_width + 10.0) // Same padding as in draw method
+        }
+    }
+    
+    // Getter for height (fixed height or calculated content height)
+    #[allow(unused)]
+    pub fn get_height(&self) -> Option<f32> {
+        match self.fixed_height {
+            Some(height) => Some(height),
+            None => Some(self.cached_total_height)
+        }
+    }
+    
+    // Getter for font size
+    #[allow(unused)]
+    pub fn get_font_size(&self) -> u16 {
+        self.font_size
+    }
+    
+    // Getter for the label's text content
+    #[allow(unused)]
+    pub fn get_text(&self) -> &str {
+        &self.text
+    }
     
     // Getter for x position
     #[allow(unused)]
