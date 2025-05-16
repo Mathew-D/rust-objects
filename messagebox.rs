@@ -105,21 +105,9 @@ dialog.with_button_colors(
     BLACK               // Button text color
 );
 ```
-
-IMPORTANT NOTES:
-- Make sure to call draw() AFTER drawing other elements in your main loop
-- Don't call .show() inside the main loop unless in response to an event (like a key press)
-- The dialog automatically hides when a button is clicked or it's closed
-
-Then inside the loop, MOST IMPORTANTLY, make sure to draw the message box AFTER 
-clearing the background and drawing other elements:
-
     // Clear background and draw other elements first
     clear_background(RED);
     draw_your_other_elements();
-
-    
-    // LAST: Use draw for the message box (it handles everything!)
     
     // For simple info dialogs, just call draw without an if statement:
     info_box.draw();
@@ -158,11 +146,6 @@ IMPORTANT NOTES:
 - Don't call .show() inside the main loop unless in response to an event (like a key press)
 - The dialog automatically hides when a button is clicked or it's closed
 - Buttons change color and show a highlighted border when hovered for better visual feedback
-
-TROUBLESHOOTING:
-- If the message box doesn't appear, make sure you called .show() on it
-- Make sure draw() is called AFTER drawing other elements
-- If you want to show the dialog again after it was closed, call .show() again
 */
 
 use macroquad::prelude::*;
