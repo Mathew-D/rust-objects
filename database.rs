@@ -1,8 +1,10 @@
 /*
 Made by: Mathew Dusome
-April 27 2025
+May 23 2025
 
-Adds database functionality for both web and native platforms using a cloud-hosted database
+Adds database functionality for both web and native platforms using Supabase as the cloud database.
+This module provides a simple and consistent API for storing and retrieving game data, user profiles,
+settings, and other persistent information across different platforms.
 
 In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod database;
@@ -20,33 +22,44 @@ serde_json = "1.0"
 reqwest = { version = "0.11", features = ["json"] }
 
 # For web builds, add this section:
+# These dependencies ensure proper functionality in WebAssembly environments
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { version = "0.11", features = ["json", "wasm-client"] }
 wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["console"] }
 ```
+
+This configuration enables seamless database connectivity across both:
+- Native platforms (Windows, macOS, Linux)
+- Web platforms (via WebAssembly)
+
+The Supabase REST API works consistently in both environments with no code changes needed.
 
 Basic example of how to use this in your code:
 
-// 1. Create a connection to your cloud database 
-//    Change the provider type based on which service you're using:
-//    - DbProvider::Supabase
-//    - DbProvider::Firebase
-//    - DbProvider::MongoDB
-//    - DbProvider::Neon
-//    - DbProvider::Generic (for other REST APIs)
+// 1. Create a connection to your Supabase database
 let client = create_connection(
-    DbProvider::Supabase,
     "https://your-project.supabase.co/rest/v1",
-    Some("your-api-key".to_string())
+    "your-api-key".to_string()
 );
 
-// 2. Create a table (usually done once at the start)
-create_table(&client, "game_scores", &["player TEXT", "score INTEGER"]).await
+// 2. Create a table for storing game scores (usually done once at app startup)
+// The game_scores table tracks player performance with fields for:
+// - player: The username of the player
+// - score: The numeric score achieved in the game
+// - level: The game level where the score was achieved
+// - date: When the score was recorded
+create_table(&client, "game_scores", &[
+    "player TEXT", 
+    "score INTEGER",
+    "level INTEGER", 
+    "date TEXT"
+]).await
     .expect("Failed to create table");
 
 // 3. Insert data into the database
-let columns = &["player", "score"];
-let values = &["Player1", "500"];
+let columns = &["player", "score", "level", "date"];
+let values = &["Player1", "500", "5", "2025-05-23"];
 insert_db(&client, "game_scores", columns, values).await
     .expect("Failed to insert data");
 
@@ -64,7 +77,16 @@ for score in scores {
         .and_then(|v| v.as_str())
         .unwrap_or("0");
     
-    println!("{}: {}", player, points);
+    let level = score.data.get("level")
+        .and_then(|v| v.as_str())
+        .unwrap_or("1");
+        
+    let date = score.data.get("date")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown");
+    
+    println!("Player: {}, Score: {}, Level: {}, Date: {}", 
+             player, points, level, date);
 }
 
 // 6. Update a record
@@ -74,12 +96,77 @@ update_db(&client, "game_scores", 1, &["score=600"]).await
 // 7. Delete a record
 delete_db(&client, "game_scores", 1).await
     .expect("Failed to delete score");
+
+// ---- Authentication Example ----
+
+// 8. Create a users table for authentication
+create_table(&client, "users", &[
+    "username TEXT",
+    "password TEXT", // In production, store hashed passwords only!
+    "email TEXT",
+    "last_login TEXT"
+]).await
+    .expect("Failed to create users table");
+
+// 9. Insert a new user
+let user_columns = &["username", "password", "email", "last_login"];
+let user_values = &["player_one", "hashed_password_here", "player@example.com", "2025-05-23"];
+insert_db(&client, "users", user_columns, user_values).await
+    .expect("Failed to insert user");
+
+// 10. Authenticate a user (simple example - use proper authentication in production)
+// Note: This example works identically on both web and native platforms
+let username = "player_one";
+let password = "user_entered_password"; // This would come from user input
+let conditions = &[&format!("username={}", username)];
+
+let users = select_db(&client, "users", Some(conditions)).await
+    .expect("Failed to query users");
+
+if let Some(user) = users.first() {
+    let stored_password = user.data.get("password")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    
+    if verify_password(password, stored_password) {
+        println!("Authentication successful!");
+    } else {
+        println!("Authentication failed: incorrect password");
+    }
+} else {
+    println!("Authentication failed: user not found");
+}
+
+// Helper function to verify password (implement proper hashing in production)
+fn verify_password(input: &str, stored: &str) -> bool {
+    // In a real application, you would use a proper password hashing library
+    // like bcrypt, argon2, or pbkdf2 to compare hashed passwords
+    // 
+    // Note: For web projects, be sure to include the appropriate wasm-compatible 
+    // hashing libraries in your Cargo.toml. Most modern crypto libraries now support wasm32 targets.
+    input == stored
+}
 */
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
+
+// Web-specific imports for better error handling
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+// Web compatibility notes:
+// This module has been designed to work seamlessly on both native and web platforms.
+// - For web platforms, all async operations use wasm-bindgen-futures internally
+// - Network requests automatically use the appropriate transport mechanism per platform
+// - The Supabase REST API works identically in both environments
+//
+// When building for web, be aware of:
+// 1. CORS policies: Your Supabase project needs proper CORS configuration
+// 2. API key security: Never expose your service_role key in web apps, use anon key instead
+// 3. Authentication: Consider using Supabase Auth directly for web apps instead of the simplified example
 
 // Custom error type for database operations
 #[derive(Debug)]
@@ -98,27 +185,11 @@ impl StdError for DbError {}
 // Define the Result type for our database operations
 pub type Result<T> = std::result::Result<T, DbError>;
 
-/// Supported database providers
-#[derive(Debug, Clone, Copy)]
-pub enum DbProvider {
-    /// Supabase REST API
-    Supabase,
-    /// Firebase Realtime Database
-    Firebase,
-    /// MongoDB Atlas Data API
-    MongoDB,
-    /// Neon Postgres
-    Neon,
-    /// Generic REST API that follows our format
-    Generic,
-}
-
-// The Database client represents the connection to our cloud database
+// The Database client represents the connection to our Supabase database
 #[derive(Clone)]
 pub struct DbClient {
-    provider: DbProvider,
     base_url: String,
-    api_key: Option<String>,
+    api_key: String,
     client: reqwest::Client,
 }
 
@@ -131,27 +202,25 @@ pub struct Row {
 }
 
 impl DbClient {
-    /// Creates a new database client
+    /// Creates a new database client for Supabase
     ///
     /// # Arguments
     ///
-    /// * `provider` - The database provider to use
-    /// * `base_url` - The base URL for the database service
-    /// * `api_key` - Optional API key for authentication
+    /// * `base_url` - The base URL for the Supabase REST API (e.g., "https://your-project.supabase.co/rest/v1")
+    /// * `api_key` - The Supabase API key for authentication
     ///
     /// # Returns
     ///
     /// * `DbClient` - The database client
-    pub fn new(provider: DbProvider, base_url: &str, api_key: Option<String>) -> Self {
+    pub fn new(base_url: &str, api_key: String) -> Self {
         Self {
-            provider,
             base_url: base_url.to_string(),
             api_key,
             client: reqwest::Client::new(),
         }
     }
 
-    /// Makes an authenticated request to the database API
+    /// Makes an authenticated request to the Supabase REST API
     pub(crate) async fn request<T: Serialize + ?Sized>(
         &self,
         method: reqwest::Method,
@@ -161,37 +230,10 @@ impl DbClient {
         let url = format!("{}{}", self.base_url, path);
         let mut req_builder = self.client.request(method, &url);
         
-        // Add appropriate authentication based on provider
-        match self.provider {
-            DbProvider::Supabase => {
-                if let Some(key) = &self.api_key {
-                    req_builder = req_builder
-                        .header("apikey", key)
-                        .header("Authorization", format!("Bearer {}", key));
-                }
-            },
-            DbProvider::Firebase => {
-                // Firebase typically uses query parameters for auth
-                if let Some(key) = &self.api_key {
-                    let url = if url.contains('?') {
-                        format!("{}&auth={}", url, key)
-                    } else {
-                        format!("{}?auth={}", url, key)
-                    };
-                    req_builder = self.client.request(method, &url);
-                }
-            },
-            DbProvider::MongoDB => {
-                if let Some(key) = &self.api_key {
-                    req_builder = req_builder.header("api-key", key);
-                }
-            },
-            DbProvider::Neon | DbProvider::Generic => {
-                if let Some(key) = &self.api_key {
-                    req_builder = req_builder.header("Authorization", format!("Bearer {}", key));
-                }
-            },
-        }
+        // Add Supabase authentication headers
+        req_builder = req_builder
+            .header("apikey", &self.api_key)
+            .header("Authorization", format!("Bearer {}", self.api_key));
         
         // Add the request body if provided
         if let Some(data) = body {
@@ -204,389 +246,127 @@ impl DbClient {
             .map_err(|e| DbError { message: e.to_string() })
     }
     
-    /// Get the correct path for a table operation based on provider
+    /// Get the path for a table operation in Supabase
     fn get_table_path(&self, table: &str) -> String {
-        match self.provider {
-            DbProvider::Supabase => format!("/{}", table),
-            DbProvider::Firebase => format!("/{}.json", table),
-            DbProvider::MongoDB => "/action/find".to_string(), // MongoDB uses action endpoints
-            DbProvider::Neon => format!("/tables/{}", table),  // Would use SQL in a real implementation
-            DbProvider::Generic => format!("/tables/{}", table),
-        }
+        format!("/{}", table)
     }
     
-    /// Get the correct path for a row operation based on provider
+    /// Get the path for a row operation in Supabase
     fn get_row_path(&self, table: &str, row_id: Option<i64>) -> String {
-        match self.provider {
-            DbProvider::Supabase => {
-                if let Some(id) = row_id {
-                    format!("/{}?id=eq.{}", table, id)
-                } else {
-                    format!("/{}", table)
-                }
-            },
-            DbProvider::Firebase => {
-                if let Some(id) = row_id {
-                    format!("/{}/{}.json", table, id)
-                } else {
-                    format!("/{}.json", table)
-                }
-            },
-            DbProvider::MongoDB => "/action/updateOne".to_string(),  // For MongoDB
-            DbProvider::Neon => {
-                if let Some(id) = row_id {
-                    format!("/tables/{}/rows/{}", table, id)
-                } else {
-                    format!("/tables/{}/rows", table)
-                }
-            },
-            DbProvider::Generic => {
-                if let Some(id) = row_id {
-                    format!("/tables/{}/rows/{}", table, id)
-                } else {
-                    format!("/tables/{}/rows", table)
-                }
-            },
+        if let Some(id) = row_id {
+            format!("/{}?id=eq.{}", table, id)
+        } else {
+            format!("/{}", table)
         }
     }
     
-    /// Format the request body for creating tables based on provider
+    /// Format the request body for creating tables in Supabase
     pub(crate) fn format_create_table_body(&self, table: &str, schema: &HashMap<String, String>) -> serde_json::Value {
-        match self.provider {
-            DbProvider::Supabase => {
-                // Supabase would typically use SQL for creating tables
-                // This is simplified for the API approach
-                serde_json::json!({
-                    "name": table,
-                    "columns": schema
-                })
-            },
-            DbProvider::Firebase => {
-                // Firebase doesn't require explicit schema creation
-                serde_json::json!({})
-            },
-            DbProvider::MongoDB => {
-                // MongoDB Atlas has a createCollection operation
-                serde_json::json!({
-                    "collection": table
-                })
-            },
-            DbProvider::Neon | DbProvider::Generic => {
-                serde_json::json!({
-                    "table": table,
-                    "schema": schema
-                })
-            },
-        }
+        // Supabase would typically use SQL for creating tables
+        // This is simplified for the API approach
+        serde_json::json!({
+            "name": table,
+            "columns": schema
+        })
     }
     
-    /// Format the data for insert based on provider
-    pub(crate) fn format_insert_body(&self, table: &str, data: &HashMap<String, String>) -> serde_json::Value {
-        match self.provider {
-            DbProvider::Supabase => {
-                // Supabase directly accepts the data object
-                serde_json::json!(data)
-            },
-            DbProvider::Firebase => {
-                // Firebase directly accepts the data
-                serde_json::json!(data)
-            },
-            DbProvider::MongoDB => {
-                // MongoDB requires a specific format
-                serde_json::json!({
-                    "collection": table,
-                    "document": data
-                })
-            },
-            DbProvider::Neon | DbProvider::Generic => {
-                serde_json::json!({ "data": data })
-            },
-        }
+    /// Format the data for insert in Supabase
+    pub(crate) fn format_insert_body(&self, _table: &str, data: &HashMap<String, String>) -> serde_json::Value {
+        // Supabase directly accepts the data object
+        serde_json::json!(data)
     }
     
-    /// Format the query parameters for select based on provider
+    /// Format the query parameters for select in Supabase
     pub(crate) fn format_select_params(&self, table: &str, conditions: Option<&[&str]>) -> (String, Option<serde_json::Value>) {
         if conditions.is_none() || conditions.unwrap().is_empty() {
-            match self.provider {
-                DbProvider::Supabase => (self.get_table_path(table), None),
-                DbProvider::Firebase => (self.get_row_path(table, None), None),
-                DbProvider::MongoDB => {
-                    (
-                        "/action/find".to_string(),
-                        Some(serde_json::json!({
-                            "collection": table,
-                            "filter": {}
-                        }))
-                    )
-                },
-                DbProvider::Neon | DbProvider::Generic => (self.get_row_path(table, None), None),
-            }
+            (self.get_table_path(table), None)
         } else {
             let conditions = conditions.unwrap();
-            match self.provider {
-                DbProvider::Supabase => {
-                    let mut query = self.get_table_path(table);
-                    let filters: Vec<String> = conditions.iter()
-                        .map(|c| {
-                            let parts: Vec<&str> = c.splitn(2, '=').collect();
-                            if parts.len() == 2 {
-                                format!("{}=eq.{}", parts[0].trim(), parts[1].trim().trim_matches('\'').trim_matches('"'))
-                            } else {
-                                String::new()
-                            }
-                        })
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    
-                    if !filters.is_empty() {
-                        query.push('?');
-                        query.push_str(&filters.join("&"));
-                    }
-                    
-                    (query, None)
-                },
-                DbProvider::Firebase => {
-                    // Firebase uses query parameters for filtering
-                    // For complex queries, you'd use orderBy and other params
-                    (self.get_row_path(table, None), None)
-                },
-                DbProvider::MongoDB => {
-                    // Build MongoDB filter
-                    let mut filter = serde_json::Map::new();
-                    for condition in conditions {
-                        let parts: Vec<&str> = condition.splitn(2, '=').collect();
-                        if parts.len() == 2 {
-                            let key = parts[0].trim();
-                            let value = parts[1].trim().trim_matches('\'').trim_matches('"');
-                            filter.insert(key.to_string(), serde_json::Value::String(value.to_string()));
-                        }
-                    }
-                    
-                    (
-                        "/action/find".to_string(),
-                        Some(serde_json::json!({
-                            "collection": table,
-                            "filter": filter
-                        }))
-                    )
-                },
-                DbProvider::Neon | DbProvider::Generic => {
-                    let mut query_params = Vec::new();
-                    
-                    for cond in conditions {
-                        let parts: Vec<&str> = cond.splitn(2, '=').collect();
-                        if parts.len() == 2 {
-                            let col = parts[0].trim();
-                            let val = parts[1].trim().trim_matches('\'').trim_matches('"');
-                            query_params.push(format!("filter[{}]={}", col, val));
-                        }
-                    }
-                    
-                    let path = self.get_row_path(table, None);
-                    let query_string = if !query_params.is_empty() {
-                        format!("{}?{}", path, query_params.join("&"))
+            let mut query = self.get_table_path(table);
+            let filters: Vec<String> = conditions.iter()
+                .map(|c| {
+                    let parts: Vec<&str> = c.splitn(2, '=').collect();
+                    if parts.len() == 2 {
+                        format!("{}=eq.{}", parts[0].trim(), parts[1].trim().trim_matches('\'').trim_matches('"'))
                     } else {
-                        path
-                    };
-                    
-                    (query_string, None)
-                },
+                        String::new()
+                    }
+                })
+                .filter(|s| !s.is_empty())
+                .collect();
+            
+            if !filters.is_empty() {
+                query.push('?');
+                query.push_str(&filters.join("&"));
             }
+            
+            (query, None)
         }
     }
     
-    /// Format the update body based on provider
+    /// Format the update body for Supabase
     pub(crate) fn format_update_body(&self, table: &str, row_id: i64, updates: &HashMap<String, String>) -> (String, serde_json::Value) {
-        match self.provider {
-            DbProvider::Supabase => {
-                (
-                    format!("/{}?id=eq.{}", table, row_id),
-                    serde_json::json!(updates)
-                )
-            },
-            DbProvider::Firebase => {
-                (
-                    self.get_row_path(table, Some(row_id)),
-                    serde_json::json!(updates)
-                )
-            },
-            DbProvider::MongoDB => {
-                (
-                    "/action/updateOne".to_string(),
-                    serde_json::json!({
-                        "collection": table,
-                        "filter": { "_id": row_id },
-                        "update": { "$set": updates }
-                    })
-                )
-            },
-            DbProvider::Neon | DbProvider::Generic => {
-                (
-                    self.get_row_path(table, Some(row_id)),
-                    serde_json::json!({ "data": updates })
-                )
-            },
-        }
+        (
+            format!("/{}?id=eq.{}", table, row_id),
+            serde_json::json!(updates)
+        )
     }
     
-    /// Format the delete parameters based on provider
+    /// Format the delete parameters for Supabase
     pub(crate) fn format_delete_params(&self, table: &str, row_id: i64) -> (String, Option<serde_json::Value>) {
-        match self.provider {
-            DbProvider::Supabase => {
-                (format!("/{}?id=eq.{}", table, row_id), None)
-            },
-            DbProvider::Firebase => {
-                (self.get_row_path(table, Some(row_id)), None)
-            },
-            DbProvider::MongoDB => {
-                (
-                    "/action/deleteOne".to_string(),
-                    Some(serde_json::json!({
-                        "collection": table,
-                        "filter": { "_id": row_id }
-                    }))
-                )
-            },
-            DbProvider::Neon | DbProvider::Generic => {
-                (self.get_row_path(table, Some(row_id)), None)
-            },
-        }
+        (format!("/{}?id=eq.{}", table, row_id), None)
     }
     
-    /// Parse the response based on provider
+    /// Parse the response from Supabase
     pub(crate) async fn parse_select_response(&self, response: reqwest::Response) -> Result<Vec<Row>> {
         let json: serde_json::Value = response
             .json()
             .await
             .map_err(|e| DbError { message: e.to_string() })?;
         
-        match self.provider {
-            DbProvider::Supabase => {
-                // Supabase returns an array of objects
-                if let Some(rows) = json.as_array() {
-                    let mut result = Vec::new();
+        // Supabase returns an array of objects
+        if let Some(rows) = json.as_array() {
+            let mut result = Vec::new();
+            
+            for row_value in rows {
+                if let Some(row_obj) = row_value.as_object() {
+                    let mut row = Row {
+                        id: row_obj.get("id").and_then(|v| v.as_i64()),
+                        data: HashMap::new(),
+                    };
                     
-                    for row_value in rows {
-                        if let Some(row_obj) = row_value.as_object() {
-                            let mut row = Row {
-                                id: row_obj.get("id").and_then(|v| v.as_i64()),
-                                data: HashMap::new(),
-                            };
-                            
-                            for (key, value) in row_obj {
-                                if key != "id" {
-                                    row.data.insert(key.clone(), value.clone());
-                                }
-                            }
-                            
-                            result.push(row);
+                    for (key, value) in row_obj {
+                        if key != "id" {
+                            row.data.insert(key.clone(), value.clone());
                         }
                     }
                     
-                    Ok(result)
-                } else {
-                    Ok(Vec::new())
+                    result.push(row);
                 }
-            },
-            DbProvider::Firebase => {
-                // Firebase returns an object where keys are IDs and values are the data
-                if let Some(obj) = json.as_object() {
-                    let mut result = Vec::new();
-                    
-                    for (key, value) in obj {
-                        if let Some(data_obj) = value.as_object() {
-                            let mut row = Row {
-                                id: key.parse::<i64>().ok(),
-                                data: HashMap::new(),
-                            };
-                            
-                            for (k, v) in data_obj {
-                                row.data.insert(k.clone(), v.clone());
-                            }
-                            
-                            result.push(row);
-                        }
-                    }
-                    
-                    Ok(result)
-                } else {
-                    Ok(Vec::new())
-                }
-            },
-            DbProvider::MongoDB => {
-                // MongoDB Data API returns documents in a specific format
-                if let Some(documents) = json.get("documents").and_then(|d| d.as_array()) {
-                    let mut result = Vec::new();
-                    
-                    for doc in documents {
-                        if let Some(doc_obj) = doc.as_object() {
-                            let mut row = Row {
-                                id: doc_obj.get("_id").and_then(|v| v.as_i64()),
-                                data: HashMap::new(),
-                            };
-                            
-                            for (key, value) in doc_obj {
-                                if key != "_id" {
-                                    row.data.insert(key.clone(), value.clone());
-                                }
-                            }
-                            
-                            result.push(row);
-                        }
-                    }
-                    
-                    Ok(result)
-                } else {
-                    Ok(Vec::new())
-                }
-            },
-            DbProvider::Neon | DbProvider::Generic => {
-                // For the generic format we assume a "rows" array
-                if let Some(rows) = json.get("rows").and_then(|r| r.as_array()) {
-                    let mut result = Vec::new();
-                    
-                    for row_value in rows {
-                        if let Some(row_obj) = row_value.as_object() {
-                            let mut row = Row {
-                                id: row_obj.get("id").and_then(|v| v.as_i64()),
-                                data: HashMap::new(),
-                            };
-                            
-                            for (key, value) in row_obj {
-                                if key != "id" {
-                                    row.data.insert(key.clone(), value.clone());
-                                }
-                            }
-                            
-                            result.push(row);
-                        }
-                    }
-                    
-                    Ok(result)
-                } else {
-                    Ok(Vec::new())
-                }
-            },
+            }
+            
+            Ok(result)
+        } else {
+            Ok(Vec::new())
         }
     }
 }
 
-/// Creates a connection to the database
+/// Creates a connection to the Supabase database
 ///
 /// # Arguments
 ///
-/// * `provider` - The database provider to use
-/// * `db_url` - The database service URL
-/// * `api_key` - Optional API key for authentication
+/// * `db_url` - The Supabase REST API URL (e.g., "https://your-project.supabase.co/rest/v1")
+/// * `api_key` - The Supabase API key for authentication
 ///
 /// # Returns
 ///
 /// * `DbClient` - The database client
-pub fn create_connection(provider: DbProvider, db_url: &str, api_key: Option<String>) -> DbClient {
-    DbClient::new(provider, db_url, api_key)
+pub fn create_connection(db_url: &str, api_key: String) -> DbClient {
+    DbClient::new(db_url, api_key)
 }
 
-/// Creates a table in the database
+/// Creates a table in the Supabase database
 ///
 /// # Arguments
 ///
@@ -619,21 +399,10 @@ pub async fn create_table(client: &DbClient, table: &str, columns: &[&str]) -> R
         }
     }
     
-    // Get the correct path and format the body for this provider
-    let path = match client.provider {
-        DbProvider::Supabase => "/rpc/create_table", // Supabase often uses RPC for schema changes
-        DbProvider::Firebase => "", // Firebase doesn't need explicit creation
-        DbProvider::MongoDB => "/action/createCollection",
-        DbProvider::Neon => "/tables",
-        DbProvider::Generic => "/tables",
-    };
+    // Supabase uses RPC for schema changes
+    let path = "/rpc/create_table";
     
-    // Skip for Firebase as it doesn't require explicit table creation
-    if client.provider == DbProvider::Firebase {
-        return Ok(());
-    }
-    
-    // Format the request body based on provider
+    // Format the request body for Supabase
     let body = client.format_create_table_body(table, &schema);
     
     // Send request
@@ -880,26 +649,27 @@ pub async fn delete_where(
     table: &str,
     conditions: &[&str],
 ) -> Result<()> {
-    // For MongoDB, we can do this in one request
-    if client.provider == DbProvider::MongoDB {
-        // Build MongoDB filter
-        let mut filter = serde_json::Map::new();
-        for condition in conditions {
-            let parts: Vec<&str> = condition.splitn(2, '=').collect();
+    // For Supabase, we can do this in one request
+    let mut path = client.get_table_path(table);
+    
+    let filters: Vec<String> = conditions.iter()
+        .map(|c| {
+            let parts: Vec<&str> = c.splitn(2, '=').collect();
             if parts.len() == 2 {
-                let key = parts[0].trim();
-                let value = parts[1].trim().trim_matches('\'').trim_matches('"');
-                filter.insert(key.to_string(), serde_json::Value::String(value.to_string()));
+                format!("{}=eq.{}", parts[0].trim(), parts[1].trim().trim_matches('\'').trim_matches('"'))
+            } else {
+                String::new()
             }
-        }
-        
-        let body = serde_json::json!({
-            "collection": table,
-            "filter": filter
-        });
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    if !filters.is_empty() {
+        path.push('?');
+        path.push_str(&filters.join("&"));
         
         let response = client
-            .request(reqwest::Method::POST, "/action/deleteMany", Some(&body))
+            .request(reqwest::Method::DELETE, &path, Option::<&()>::None)
             .await?;
         
         if response.status().is_success() {
@@ -912,42 +682,7 @@ pub async fn delete_where(
         }
     }
     
-    // For Supabase, we can also do it in one request
-    if client.provider == DbProvider::Supabase {
-        let mut path = client.get_table_path(table);
-        
-        let filters: Vec<String> = conditions.iter()
-            .map(|c| {
-                let parts: Vec<&str> = c.splitn(2, '=').collect();
-                if parts.len() == 2 {
-                    format!("{}=eq.{}", parts[0].trim(), parts[1].trim().trim_matches('\'').trim_matches('"'))
-                } else {
-                    String::new()
-                }
-            })
-            .filter(|s| !s.is_empty())
-            .collect();
-        
-        if !filters.is_empty() {
-            path.push('?');
-            path.push_str(&filters.join("&"));
-            
-            let response = client
-                .request(reqwest::Method::DELETE, &path, Option::<&()>::None)
-                .await?;
-            
-            if response.status().is_success() {
-                return Ok(());
-            } else {
-                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                return Err(DbError {
-                    message: format!("Failed to delete data: {} - {}", response.status(), error_text),
-                });
-            }
-        }
-    }
-    
-    // For other providers, we first select the matching rows to get their IDs, then delete each one
+    // If no conditions were provided, we'll select all rows and delete them individually
     let rows = select_db(client, table, Some(conditions)).await?;
     
     // Delete each row by ID
