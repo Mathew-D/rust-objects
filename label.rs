@@ -46,6 +46,10 @@ To change the label's position:
      lbl_out.set_position(150.0, 250.0);
 This changes the x and y coordinates of the label.
 
+To change the font size:
+     lbl_out.set_font_size(24);
+This changes the font size of the label and recalculates its dimensions.
+
 To change the label's text:
      lbl_out.set_text("New text content");
 
@@ -283,6 +287,17 @@ impl Label {
     pub fn set_position(&mut self, x: f32, y: f32) -> &mut Self {
         self.x = x;
         self.y = y;
+        self
+    }
+    
+    // Setter for font size
+    #[allow(unused)]
+    pub fn set_font_size(&mut self, font_size: u16) -> &mut Self {
+        self.font_size = font_size;
+        
+        // Recalculate text dimensions since font size affects text measurements
+        self.calculate_text_dimensions();
+        
         self
     }
 
