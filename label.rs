@@ -53,6 +53,14 @@ This changes the font size of the label and recalculates its dimensions.
 To change the label's text:
      lbl_out.set_text("New text content");
 
+To control the visibility of a label:
+     lbl_out.set_visible(false); // Hide the label
+     lbl_out.set_visible(true);  // Show the label
+     let is_visible = lbl_out.is_visible(); // Check if the label is visible
+     lbl_out.toggle_visibility(); // Toggle between visible and hidden
+You can also set visibility during creation with:
+     lbl_out.with_visibility(false);
+
 Example:
      // Load font once at the beginning of your program
      let font = load_ttf_font("assets/love.ttf").await.unwrap();
@@ -64,7 +72,8 @@ Example:
             .with_round(8.0)
             .with_border(RED, 1.5)
             .with_fixed_size(250.0, 120.0)
-            .with_alignment(objects::label::TextAlign::Center);
+            .with_alignment(objects::label::TextAlign::Center)
+            .with_visibility(true); // Explicitly set visibility (default is true)
 Otherwise the default system font will be used.
 
 Then in the loop you would use:
@@ -85,6 +94,7 @@ pub struct Label {
     border: bool,       // Whether to draw a border
     border_color: Color, // Color of the border
     border_thickness: f32, // Thickness of the border
+    visible: bool,      // Whether the label should be drawn
     
     // Fixed size properties
     fixed_width: Option<f32>,
@@ -122,6 +132,7 @@ impl Label {
             border: false,      // Default to no border
             border_color: BLACK, // Default border color
             border_thickness: 1.0, // Default border thickness
+            visible: true,      // Default to visible
             fixed_width: None, // No fixed width by default
             fixed_height: None, // No fixed height by default
             text_align: TextAlign::Left, // Default to left alignment
@@ -282,6 +293,12 @@ impl Label {
         Vec2::new(self.x, self.y)
     }
     
+    // Getter for visibility
+    #[allow(unused)]
+    pub fn is_visible(&self) -> bool {
+        self.visible
+    }
+    
     // Setter for position
     #[allow(unused)]
     pub fn set_position(&mut self, x: f32, y: f32) -> &mut Self {
@@ -301,8 +318,27 @@ impl Label {
         self
     }
 
+    // Setter for visibility
+    #[allow(unused)]
+    pub fn set_visible(&mut self, visible: bool) -> &mut Self {
+        self.visible = visible;
+        self
+    }
+    
+    // Method to toggle visibility (returns the new visibility state)
+    #[allow(unused)]
+    pub fn toggle_visibility(&mut self) -> bool {
+        self.visible = !self.visible;
+        self.visible
+    }
+    
     // Method to draw the label
     pub fn draw(&self) {
+        // Only draw if the label is visible
+        if !self.visible {
+            return;
+        }
+        
         let line_height = self.font_size as f32 * self.line_spacing;
         
         // Determine width and height (using fixed values if set, otherwise use content size)
