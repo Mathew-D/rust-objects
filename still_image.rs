@@ -323,6 +323,12 @@ impl StillImage {
         self.transparency_mask = empty_mask;
         self.filename = "__empty__".to_string();
     }
+
+    /// Method to set a new image
+    #[allow(unused)]
+    pub async fn set_image(&mut self, image_path: &str) {
+        self.set_texture(image_path).await;
+    }
 }
 
 async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {

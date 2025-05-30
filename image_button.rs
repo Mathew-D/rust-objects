@@ -1,30 +1,45 @@
 /*
 Made by: Mathew Dusome
 Feb 6 2025
-To import you need:
-Adds a button object 
+Program Details: Adds a button object with image support
 
+To import you need:
 In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod image_button;
 
 Then add the following with the use commands:
+    use crate::modules::image_button::ImageButton;
 
-use crate::modules::image_button::ImageButton;
-
-Then to use this you would put the following above the loop: 
+Usage examples:
+1. Create an image button:
     let btn_image = ImageButton::new(
-        100.0,
-        200.0,
-        200.0,
-        60.0,
-        "assets/button.png",
-        "assets/button_hover.png",
+        100.0,  // x position
+        200.0,  // y position
+        200.0,  // width
+        60.0,   // height
+        "assets/button.png",        // normal state image
+        "assets/button_hover.png",  // hover state image
     ).await;
 
-Then in side the loop you would use:
-if btn_image.click() {
+2. Check for clicks in your game loop:
+    if btn_image.click() {
+        // Handle button click
+    }
 
-}
+3. Change button images:
+    // Change both normal and hover images
+    btn_image.set_image(
+        "assets/new_button.png",
+        "assets/new_button_hover.png"
+    ).await;
+
+4. Use with preloaded textures from TextureManager:
+    if let (Some(normal_preloaded), Some(hover_preloaded)) = (
+        texture_manager.get_preload("assets/new_button.png"),
+        texture_manager.get_preload("assets/new_button_hover.png")
+    ) {
+        btn_image.set_preload(normal_preloaded, hover_preloaded);
+    }
 */
 
 use macroquad::prelude::*;
@@ -44,6 +59,7 @@ pub struct ImageButton {
     tex_width: usize,
     tex_height: usize,
     pub visible: bool,
+    filename: String, // Adding filename field to track the current texture path
 }
 
 impl ImageButton {
@@ -54,7 +70,59 @@ impl ImageButton {
         let hover_texture = load_texture(hover_texture_path).await.unwrap();
         let enabled = true;
         hover_texture.set_filter(FilterMode::Linear);
-        Self { x, y, width, height, enabled,texture, hover_texture, transparency_mask, tex_width, tex_height, visible: true }
+        Self { x, y, width, height, enabled,texture, hover_texture, transparency_mask, tex_width, tex_height, visible: true, filename: texture_path.to_string() }
+    }
+   
+    /// Method to set new images for the button
+    pub async fn set_image(&mut self, texture_path: &str, hover_texture_path: &str) {
+        // Update normal texture
+        let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;
+        self.texture = texture;
+        self.transparency_mask = transparency_mask;
+        self.tex_width = tex_width;
+        self.tex_height = tex_height;
+        
+        // Update hover texture
+        let hover_texture = load_texture(hover_texture_path).await.unwrap();
+        hover_texture.set_filter(FilterMode::Linear);
+        self.hover_texture = hover_texture;
+
+        // Update the filename
+        self.filename = texture_path.to_string();
+    }
+
+    /// Set button textures from preloaded images for both normal and hover states
+    #[allow(unused)]
+    pub fn set_preload(
+        &mut self, 
+        normal_preloaded: (Texture2D, Option<Vec<u8>>, String),
+        hover_preloaded: (Texture2D, Option<Vec<u8>>, String)
+    ) {
+        // Extract normal texture components
+        let (texture, mask_option, filename) = normal_preloaded;
+        let (hover_texture, _, _) = hover_preloaded;
+        
+        // Update normal texture and filename
+        self.texture = texture;
+        self.filename = filename;
+        
+        // Update hover texture
+        self.hover_texture = hover_texture;
+        
+        // Update transparency mask and dimensions
+        if let Some(mask) = mask_option {
+            self.transparency_mask = mask;
+            self.tex_width = self.texture.width() as usize;
+            self.tex_height = self.texture.height() as usize;
+        } else {
+            // If no mask is provided, create a default fully opaque mask
+            let tex_width = self.texture.width() as usize;
+            let tex_height = self.texture.height() as usize;
+            let mask_size = (tex_width * tex_height + 7) / 8;
+            self.transparency_mask = vec![0xFF; mask_size]; // 0xFF means all bits are 1 (fully opaque)
+            self.tex_width = tex_width;
+            self.tex_height = tex_height;
+        }
     }
    
     pub fn click(&self) -> bool {
