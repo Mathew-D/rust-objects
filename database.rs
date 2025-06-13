@@ -75,77 +75,149 @@ BASIC USAGE:
     let client = create_supabase_client("your-url", "your-key");
 
 FETCH EXAMPLES:
-    // Fetch all records from a table
-    let records: Vec<DatabaseTable> = client.fetch_table("your_table_name").await?;
+    // Fetch all records from a table (basic version)
+    let records = client.fetch_table::<DatabaseTable>("your_table_name").await.unwrap();
     
     // Fetch with custom query parameters
-    let filtered_records: Vec<DatabaseTable> = client
-        .fetch_table_with_query("users", "select=id,name&age=gte.18&order=name")
-        .await?;
+    let filtered_records = client
+        .fetch_table_with_query::<DatabaseTable>("users", "select=id,name&age=gte.18&order=name")
+        .await.unwrap();
     
     // Fetch specific fields only
-    let names: Vec<DatabaseTable> = client
-        .fetch_table_with_query("users", "select=id,name")
-        .await?;
+    let names = client
+        .fetch_table_with_query::<DatabaseTable>("users", "select=id,name")
+        .await.unwrap();
+
+FETCH EXAMPLES WITH PROPER ERROR HANDLING:
+    // For functions that return Result<T, E>, use the ? operator:
+    let records: Vec<DatabaseTable> = client.fetch_table("your_table_name").await?;
+    
+    // Or handle errors explicitly:
+    match client.fetch_table::<DatabaseTable>("messages").await {
+        Ok(records) => {
+            println!("Found {} records", records.len());
+            // Use the records here
+        }
+        Err(e) => {
+            eprintln!("Database error: {}", e);
+        }
+    }
 
 INSERT EXAMPLES:
-    // Insert a single record
+    // Insert a single record (basic version)
     let new_record = DatabaseTable {
         id: None,  // Will be auto-generated
         text: "Hello World".to_string(),
     };
-    let inserted: Vec<DatabaseTable> = client
+    let inserted = client
         .insert_record("messages", &new_record)
-        .await?;
+        .await.unwrap();
     
     // Insert multiple records
     let records = vec![
         DatabaseTable { id: None, text: "First message".to_string() },
         DatabaseTable { id: None, text: "Second message".to_string() },
     ];
-    let inserted: Vec<DatabaseTable> = client
+    let inserted = client
         .insert_records("messages", &records)
+        .await.unwrap();
+
+INSERT EXAMPLES WITH PROPER ERROR HANDLING:
+    // For functions that return Result<T, E>, use the ? operator:
+    let inserted: Vec<DatabaseTable> = client
+        .insert_record("messages", &new_record)
         .await?;
+    
+    // Or handle errors explicitly:
+    match client.insert_record("messages", &new_record).await {
+        Ok(inserted_records) => {
+            println!("Successfully inserted {} records", inserted_records.len());
+            for record in inserted_records {
+                println!("Inserted record ID: {:?}", record.id);
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to insert record: {}", e);
+        }
+    }
 
 UPDATE EXAMPLES:
-    // Update a specific record by ID
+    // Update a specific record by ID (basic version)
     let updated_record = DatabaseTable {
         id: Some(1),
         text: "Updated message".to_string(),
     };
-    let result: Vec<DatabaseTable> = client
+    let result = client
         .update_record_by_id("messages", 1, &updated_record)
-        .await?;
+        .await.unwrap();
     
     // Update multiple records with custom filter
     let updates = DatabaseTable {
         id: None,
         text: "Bulk update".to_string(),
     };
-    let result: Vec<DatabaseTable> = client
+    let result = client
         .update_records("messages", "author_id=eq.5", &updates)
-        .await?;
+        .await.unwrap();
     
     // Update with complex filters
-    let result: Vec<DatabaseTable> = client
+    let result = client
         .update_records("posts", "published=eq.false&author_id=eq.10", &updates)
+        .await.unwrap();
+
+UPDATE EXAMPLES WITH PROPER ERROR HANDLING:
+    // For functions that return Result<T, E>, use the ? operator:
+    let result: Vec<DatabaseTable> = client
+        .update_record_by_id("messages", 1, &updated_record)
         .await?;
+    
+    // Or handle errors explicitly:
+    match client.update_record_by_id("messages", 1, &updated_record).await {
+        Ok(updated_records) => {
+            println!("Successfully updated {} records", updated_records.len());
+            for record in updated_records {
+                println!("Updated record: {:?}", record);
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to update record: {}", e);
+        }
+    }
 
 DELETE EXAMPLES:
-    // Delete a specific record by ID
+    // Delete a specific record by ID (basic version)
+    let deleted = client
+        .delete_record_by_id::<DatabaseTable>("messages", 1)
+        .await.unwrap();
+    
+    // Delete multiple records with custom filter
+    let deleted = client
+        .delete_records::<DatabaseTable>("messages", "author_id=eq.5")
+        .await.unwrap();
+    
+    // Delete with complex filters
+    let deleted = client
+        .delete_records::<DatabaseTable>("posts", "published=eq.false&created_at=lt.2024-01-01")
+        .await.unwrap();
+
+DELETE EXAMPLES WITH PROPER ERROR HANDLING:
+    // For functions that return Result<T, E>, use the ? operator:
     let deleted: Vec<DatabaseTable> = client
         .delete_record_by_id::<DatabaseTable>("messages", 1)
         .await?;
     
-    // Delete multiple records with custom filter
-    let deleted: Vec<DatabaseTable> = client
-        .delete_records::<DatabaseTable>("messages", "author_id=eq.5")
-        .await?;
-    
-    // Delete with complex filters
-    let deleted: Vec<DatabaseTable> = client
-        .delete_records::<DatabaseTable>("posts", "published=eq.false&created_at=lt.2024-01-01")
-        .await?;
+    // Or handle errors explicitly:
+    match client.delete_record_by_id::<DatabaseTable>("messages", 1).await {
+        Ok(deleted_records) => {
+            println!("Successfully deleted {} records", deleted_records.len());
+            for record in deleted_records {
+                println!("Deleted record: {:?}", record);
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to delete record: {}", e);
+        }
+    }
 
 ADVANCED FILTERING EXAMPLES:
     // Equal to
@@ -164,6 +236,10 @@ ADVANCED FILTERING EXAMPLES:
     "select=*&order=created_at.desc&limit=10"
 
 ERROR HANDLING:
+    // Option 1: Use unwrap() for simple cases (will panic on error)
+    let records = client.fetch_table::<DatabaseTable>("messages").await.unwrap();
+    
+    // Option 2: Use match for explicit error handling
     match client.fetch_table::<DatabaseTable>("messages").await {
         Ok(records) => {
             println!("Found {} records", records.len());
@@ -174,6 +250,14 @@ ERROR HANDLING:
         Err(e) => {
             eprintln!("Database error: {}", e);
         }
+    }
+    
+    // Option 3: Use ? operator in functions that return Result
+    // (This requires your function to return Result<T, Box<dyn std::error::Error>>)
+    async fn my_database_function() -> Result<(), Box<dyn std::error::Error>> {
+        let records: Vec<DatabaseTable> = client.fetch_table("messages").await?;
+        // Process records...
+        Ok(())
     }
 
 CUSTOM STRUCT EXAMPLE:
