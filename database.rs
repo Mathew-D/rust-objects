@@ -6,6 +6,22 @@ Adds a database module for interacting with Supabase or any REST API database
 In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod database;
 
+Add the following to Cargo.toml under [dependencies]:
+    serde = { version = "1.0", features = ["derive"] }
+    serde_json = "1.0"
+    
+    [target.'cfg(target_arch = "wasm32")'.dependencies]
+    wasm-bindgen = "0.2"
+    wasm-bindgen-futures = "0.4"
+    js-sys = "0.3"
+    web-sys = { version = "0.3", features = [
+    "Window", "Request", "RequestInit", "RequestMode",
+    "Headers", "Response"
+    ] }
+
+    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+    ureq = { version = "2.9", features = ["json"] }
+
 Add with the other use statements:
     use crate::modules::database::{DatabaseClient, DatabaseTable, create_database_client};
 
