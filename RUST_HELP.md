@@ -433,7 +433,7 @@ play_sound(
 use macroquad::audio::{load_sound, play_sound, PlaySoundParams};
 
 // Load a music file (in async function)
-let background_music = load_sound("sounds/background_music.ogg").await.unwrap();
+let background_music = load_sound("assets/background_music.ogg").await.unwrap();
 
 // Play music in a loop with reduced volume
 play_sound(
@@ -452,7 +452,7 @@ play_sound(
 use macroquad::audio::{load_sound, play_sound, stop_sound, PlaySoundParams};
 
 // Load a sound (in async function)
-let alarm_sound = load_sound("sounds/alarm.ogg").await.unwrap();
+let alarm_sound = load_sound("assets/alarm.ogg").await.unwrap();
 
 // Play the sound and get a handle to it
 let sound_handle = play_sound(
@@ -473,9 +473,9 @@ stop_sound(sound_handle);
 use macroquad::audio::{load_sound, play_sound, PlaySoundParams};
 
 // Load multiple sounds (in async function)
-let jump_sound = load_sound("sounds/jump.ogg").await.unwrap();
-let coin_sound = load_sound("sounds/coin.ogg").await.unwrap();
-let win_sound = load_sound("sounds/win.ogg").await.unwrap();
+let jump_sound = load_sound("assets/jump.ogg").await.unwrap();
+let coin_sound = load_sound("assets/coin.ogg").await.unwrap();
+let win_sound = load_sound("assets/win.ogg").await.unwrap();
 
 // Play different sounds based on game events
 if player_jumped {
@@ -499,7 +499,7 @@ if level_completed {
 
 3. **Error Handling**: Always handle potential errors when loading sounds:
 ```rust
-match load_sound("sounds/effect.ogg").await {
+match load_sound("assets/effect.ogg").await {
     Ok(sound) => {
         // Store the sound for later use
         my_sound = sound;
