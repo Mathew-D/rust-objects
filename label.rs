@@ -430,6 +430,7 @@ impl Label {
 }
 
 // Function to draw a rectangle with rounded corners - optimized version
+#[allow(unused)]
 fn draw_round_rect(x: f32, y: f32, w: f32, h: f32, radius: f32, color: Color) {
     // Precompute corner positions
     let top_left = Vec2::new(x + radius, y + radius);
@@ -453,6 +454,7 @@ fn draw_round_rect(x: f32, y: f32, w: f32, h: f32, radius: f32, color: Color) {
 
 // New border drawing method using filled rectangles instead of lines
 // This approach ensures consistent border thickness on all sides
+#[allow(unused)]
 fn draw_rectangle_border(x: f32, y: f32, w: f32, h: f32, thickness: f32, color: Color) {
     // Top border
     draw_rectangle(x, y, w, thickness, color);
@@ -465,6 +467,7 @@ fn draw_rectangle_border(x: f32, y: f32, w: f32, h: f32, thickness: f32, color: 
 }
 
 // New function to draw rounded rectangle borders with consistent thickness
+#[allow(unused)]
 fn draw_round_rect_border(x: f32, y: f32, w: f32, h: f32, radius: f32, thickness: f32, color: Color, bg_color: Color) {
     if radius <= 0.0 {
         // Use our new rectangle border function for non-rounded corners
