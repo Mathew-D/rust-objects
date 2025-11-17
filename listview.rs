@@ -1,55 +1,73 @@
 /*
+ListView Widget - Scrollable list with selection support
 Made by: Mathew Dusome
-April 26 2025
+Date: April 26, 2025
 
-Adds a list view widget
+=== SETUP ===
+1. Add to modules/mod.rs:
+   pub mod listview;
 
-In your mod.rs file located in the modules folder add the following to the end of the file
-        pub mod listview;
+2. Add import in main.rs:
+   use crate::modules::listview::ListView;
 
-Add with the other use statements
-    use crate::modules::listview::ListView;
-
-Then to use this you would put the following above the loop: 
-    let list_items = vec!["Item 1".to_string(), "Item 2".to_string(), "Item 3".to_string(), "Item 4"].to_string();
-    let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20);
-Where the numbers are x, y, font size
-
-You can also set the colors and item spacing by using:
-    list_view.with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
-Where the colors are text color, background color, and selection color respectively. 
+=== BASIC USAGE ===
+Create a ListView (before your main loop):
+    let items = vec!["Item 1".to_string(), "Item 2".to_string()];
+    let mut list_view = ListView::new(&items, x, y, font_size);
     
-    list_view.with_spacing(1.5)
-           .with_padding(10.0)
-Where the spacing is the line spacing and padding is the padding around the text.
+Parameters:
+    - &items: Reference to a vector of items (can be reused after)
+    - x, y: Position on screen
+    - font_size: Size of text (e.g., 20)
 
-You can set visible items and enable scrolling with:
-    list_view.with_max_visible_items(5)
+Draw in your loop:
+    list_view.draw();
 
-List management functions:
-    list_view.add_item("New Item")    - Add a single item to the list
-    list_view.add_items(&vec!["Item A".to_string(), "Item B".to_string()])    - Add multiple items at once
-    list_view.clear()    - Remove all items from the list
-    list_view.remove_item(index)    - Remove item at specific index
+=== STYLING (optional, chain these methods) ===
+    list_view
+        .with_colors(text_color, Some(background_color), Some(selection_color))
+        .with_spacing(1.5)              // Line spacing multiplier
+        .with_padding(10.0)             // Padding around text
+        .set_width(300.0);              // Fixed width (auto-calculated if not set)
 
-Full Example:
-   
-    let list_items = vec!["Item 1".to_string(), "Item 2".to_string(), "Item 3".to_string(), "Item 4"].to_string();
-    let mut list_view = ListView::new(&list_items, 50.0, 100.0, 20);
-    list_view.with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
-             .with_spacing(1.5)
-             .with_padding(10.0)
-             .with_max_visible_items(5); // Enable scrolling by limiting visible items
+=== SCROLLING ===
+Enable scrolling by limiting visible items:
+    list_view.with_max_visible_items(5);
 
-    // list_items can still be used here since ListView::new() takes a reference
+This will:
+    - Fix the box size to show exactly 5 items
+    - Add a scrollbar if there are more items
+    - Allow mouse wheel scrolling
+
+=== LIST MANAGEMENT ===
+    list_view.add_item("New Item");                     // Add single item
+    list_view.add_items(&vec!["A".to_string(), "B"]);   // Add multiple
+    list_view.clear();                                   // Remove all items
+    list_view.remove_item(index);                        // Remove by index
+    list_view.select_item(Some(index));                  // Select an item
+    let selected = list_view.selected_item();            // Get selected item
+
+=== COMPLETE EXAMPLE ===
+    let mut items = vec!["Item 1".to_string(), "Item 2".to_string()];
+    let mut list_view = ListView::new(&items, 10.0, 10.0, 20);
+    list_view
+        .with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
+        .with_spacing(1.5)
+        .with_padding(10.0)
+        .with_max_visible_items(5)
+        .set_width(300.0);
     
-    // Adding more items (note the & reference)
-    let more_items = vec!["Item 5".to_string(), "Item 6".to_string()];
-    list_view.add_items(&more_items);
-    // more_items can still be used here
-
-Then in the loop you would do:
-    list_view.draw(); 
+    loop {
+        // Add items dynamically
+        if some_condition {
+            items.push("New Item".to_string());
+            list_view.clear();
+            list_view.add_items(&items);
+        }
+        
+        list_view.draw();
+        next_frame().await;
+    }
 */
 
 use macroquad::prelude::*;
@@ -73,6 +91,7 @@ pub struct ListView {
     scrollbar_width: f32,
     scrollbar_color: Color,
     scrollbar_handle_color: Color,
+    width_override: Option<f32>,
 }
 
 impl ListView {
@@ -95,10 +114,19 @@ impl ListView {
             scrollbar_width: 10.0,
             scrollbar_color: Color::new(0.7, 0.7, 0.7, 0.7), // Light gray, semi-transparent
             scrollbar_handle_color: Color::new(0.5, 0.5, 0.5, 0.8), // Darker gray
+            width_override: None,
         }
     }
 
+    /// Set a custom width for the ListView box
+     #[allow(unused)]
+    pub fn set_width(&mut self, width: f32) -> &mut Self {
+        self.width_override = Some(width);
+        self
+    }
+
     // Method to set foreground, background, and selection colors
+     #[allow(unused)]
     pub fn with_colors(&mut self, foreground: Color, background: Option<Color>, selection_color: Option<Color>) -> &mut Self {
         self.foreground = foreground;
         self.background = background;
@@ -107,18 +135,21 @@ impl ListView {
     }
 
     // Method to set item spacing
+     #[allow(unused)]
     pub fn with_spacing(&mut self, spacing: f32) -> &mut Self {
         self.item_spacing = spacing;
         self
     }
 
     // Method to set item padding
+     #[allow(unused)]
     pub fn with_padding(&mut self, padding: f32) -> &mut Self {
         self.item_padding = padding;
         self
     }
 
     // Method to set max visible items (enables scrolling)
+     #[allow(unused)]
     pub fn with_max_visible_items(&mut self, count: usize) -> &mut Self {
         self.max_visible_items = Some(count);
         self
@@ -179,6 +210,7 @@ impl ListView {
     }
 
     // Method to get the current selected item
+     #[allow(unused)]
     pub fn selected_item(&self) -> Option<&String> {
         self.selected_index.and_then(|index| self.items.get(index))
     }
@@ -207,22 +239,25 @@ impl ListView {
     // Calculate dimensions based on content
     fn calculate_dimensions(&self) -> (f32, f32) {
         let item_height = self.font_size as f32 * self.item_spacing;
-        
+
         // Find the maximum width of any item
         let content_width = self.items.iter()
             .map(|item| measure_text(item, None, self.font_size, 1.0).width)
             .fold(0.0, f32::max);
-            
-        let width = content_width + 2.0 * self.item_padding;
-        
-        // Calculate height based on number of visible items
+
+        let width = match self.width_override {
+            Some(w) => w,
+            None => content_width + 2.0 * self.item_padding,
+        };
+
+        // Always use max_visible_items for height if set
         let visible_count = match self.max_visible_items {
-            Some(count) => count.min(self.items.len()),
+            Some(count) => count,
             None => self.items.len(),
         };
-        
+
         let height = visible_count as f32 * item_height + 2.0 * self.item_padding;
-        
+
         (width, height)
     }
 
