@@ -38,6 +38,7 @@ INITIAL SETUP:
 
 8. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
    This will compile to WebAssembly with the wasm32 dependencies above.
+
 ================================
 CUSTOMIZE YOUR DATABASE SCHEMA:
 ================================
@@ -59,7 +60,7 @@ CUSTOMIZE YOUR DATABASE SCHEMA:
      );
 
    Option B - Using the Rust API:
-     Update the create_messages_table() function below with your schema
+     Update the create_table_from_struct() function below with your schema
 
 3. Column type mapping:
    - INTEGER → i32, i64
@@ -74,23 +75,23 @@ USAGE EXAMPLES:
     let client = create_database_client();
     
     // Create table
-    create_messages_table("messages").await?;
+    create_table_from_struct("my_table").await?;
     
     // Fetch all records
-    let records: Vec<DatabaseTable> = client.fetch_table("messages").await?;
+    let records: Vec<DatabaseTable> = client.fetch_table("my_table").await?;
     
     // Insert a record (set id to 0 - auto-generated)
     let new_record = DatabaseTable { id: 0, text: "Hello".to_string() };
-    let id = client.insert_record("messages", &new_record).await?;
+    let id = client.insert_record("my_table", &new_record).await?;
     
     // Update a record
-    let count = client.update_record_by_id("messages", 1, "text", "Updated").await?;
+    let count = client.update_record_by_id("my_table", 1, "text", "Updated").await?;
     
     // Delete a record
-    let count = client.delete_record_by_id("messages", 1).await?;
+    let count = client.delete_record_by_id("my_table", 1).await?;
     
     // Custom SQL queries
-    client.execute_sql("SELECT * FROM messages WHERE id > 5").await?;
+    client.execute_sql("SELECT * FROM my_table WHERE id > 5").await?;
 */
 
 use serde::{Deserialize, Serialize};
@@ -100,8 +101,8 @@ fn is_zero(num: &i32) -> bool {
     *num == 0
 }
 
-pub const TURSO_URL: &str = "PUT_URL_HERE";
-pub const TURSO_AUTH_TOKEN: &str = "PUT_KEY_HERE";
+pub const TURSO_URL: &str = "https://testing-mathew-d.aws-us-east-2.turso.io";
+pub const TURSO_AUTH_TOKEN: &str = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjYwMDM3MzQsImlkIjoiYWJmN2VjMmQtNjI4Yy00NjQ1LTk5YWEtYjJlN2JkYmRlZjBiIiwicmlkIjoiMTc5YjVmZjktZTFlNC00YjdjLWIxYWQtMmJhYmMwOTBjNjhiIn0.BVSKprWC8aRNmi8oh6O8zHM7GsdF01d5miK3a95-UsljE6DtLk4U_iqJfHJkKA2CmvaBS706pes6I2RSUsBoCw";
 
 // ============================================================================
 // CUSTOMIZE THIS STRUCT FOR YOUR DATABASE SCHEMA
@@ -147,11 +148,13 @@ pub fn create_turso_client(url: &str, token: &str) -> DatabaseClient {
     DatabaseClient::new(url.to_string(), token.to_string())
 }
 
-/// Create a table matching the DatabaseTable/DatabaseRow schema
-/// Update this if you change the struct columns above
+/// Create a table with custom name and schema
+/// The table name and columns are fully customizable
+/// Update this function if you want to change the table structure
 /// 
-/// Example for custom schema:
+/// Example for different schemas:
 /// ```
+/// // For users table:
 /// CREATE TABLE users (
 ///   id INTEGER PRIMARY KEY AUTOINCREMENT,
 ///   email TEXT NOT NULL UNIQUE,
@@ -159,9 +162,17 @@ pub fn create_turso_client(url: &str, token: &str) -> DatabaseClient {
 ///   active BOOLEAN DEFAULT 1,
 ///   score REAL
 /// )
+/// 
+/// // For products table:
+/// CREATE TABLE products (
+///   id INTEGER PRIMARY KEY AUTOINCREMENT,
+///   name TEXT NOT NULL,
+///   price REAL,
+///   in_stock BOOLEAN
+/// )
 /// ```
 #[allow(unused)]
-pub async fn create_messages_table(table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn create_table_from_struct(table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let client = create_database_client();
     let sql = format!(
         "CREATE TABLE IF NOT EXISTS {} (
@@ -506,25 +517,36 @@ impl DatabaseClient {
         opts.set_mode(RequestMode::Cors);
         opts.set_body(&wasm_bindgen::JsValue::from_str(json_body));
 
-        let headers = Headers::new().map_err(|_| "Failed to create headers")?;
-        headers.append("Authorization", &format!("Bearer {}", self.auth_token))?;
-        headers.append("Content-Type", "application/json")?;
+        let headers = Headers::new().map_err(|e| format!("Failed to create headers: {:?}", e))?;
+        headers
+            .append("Authorization", &format!("Bearer {}", self.auth_token))
+            .map_err(|e| format!("Failed to set Authorization: {:?}", e))?;
+        headers
+            .append("Content-Type", "application/json")
+            .map_err(|e| format!("Failed to set Content-Type: {:?}", e))?;
         opts.set_headers(&headers);
 
-        let req = Request::new_with_str_and_init(&url, &opts)?;
+        let req = Request::new_with_str_and_init(&url, &opts)
+            .map_err(|e| format!("Failed to build request: {:?}", e))?;
         let win = window().ok_or("Failed to get window")?;
         let resp_value = JsFuture::from(win.fetch_with_request(&req))
             .await
-            .map_err(|_| "Fetch failed")?;
-        let resp: Response = resp_value.dyn_into()?;
+            .map_err(|e| format!("Fetch failed: {:?}", e))?;
+        let resp: Response = resp_value
+            .dyn_into()
+            .map_err(|e| format!("Failed to cast response: {:?}", e))?;
 
         if !resp.ok() {
             return Err(format!("HTTP error: {}", resp.status()).into());
         }
 
-        let text_value = JsFuture::from(resp.text()?)
+        let text_promise = resp
+            .text()
+            .map_err(|e| format!("resp.text() failed: {:?}", e))?;
+
+        let text_value = JsFuture::from(text_promise)
             .await
-            .map_err(|_| "Failed to read text")?;
+            .map_err(|e| format!("Failed to read text: {:?}", e))?;
         text_value
             .as_string()
             .ok_or("Failed to convert to string".into())
