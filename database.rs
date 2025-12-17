@@ -13,6 +13,31 @@ INITIAL SETUP:
 5. Get token: turso db tokens create my-db
 6. Update TURSO_URL and TURSO_AUTH_TOKEN below
 
+7. Add dependencies to Cargo.toml. Add these 2 lines to [dependencies]:
+
+   serde = { version = "1.0", features = ["derive"] }
+   serde_json = "1.0"
+
+   Then add these 2 new sections:
+
+   [target.'cfg(target_arch = "wasm32")'.dependencies]
+   wasm-bindgen = "0.2"
+   wasm-bindgen-futures = "0.4"
+   js-sys = "0.3"
+   web-sys = { version = "0.3", features = [
+       "Window",
+       "Request",
+       "RequestInit",
+       "RequestMode",
+       "Headers",
+       "Response",
+   ] }
+
+   [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+   ureq = { version = "2.9", features = ["json"] }
+
+8. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
+   This will compile to WebAssembly with the wasm32 dependencies above.
 ================================
 CUSTOMIZE YOUR DATABASE SCHEMA:
 ================================
