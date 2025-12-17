@@ -1,18 +1,16 @@
 /*
 Made by: Mathew Dusome
 April 30 2025
+Updated: December 17 2025
 To import you need:
 Adds TextFile functionality for cross-platform file operations
 
 For web support (WebAssembly) only:
-    add into Cargo.toml the following:   
-        # Only for WebAssembly support
+    add into Cargo.toml the following:
         [target.'cfg(target_arch = "wasm32")'.dependencies]
-        quad-storage = "0.1.3"
-    You MUST add these script tags to your index.html file above <script> load("pkg/t66.wasm"); and below 
-    <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>:
-        <script src="https://cdn.jsdelivr.net/gh/not-fl3/sapp-jsutils@master/js/sapp_jsutils.js"></script>
-        <script src="https://cdn.jsdelivr.net/gh/optozorax/quad-storage@master/js/quad-storage.js"></script>
+        gloo-storage = "0.3"
+        wasm-bindgen = "0.2"
+
 
         
 Used for Everything:
@@ -48,6 +46,10 @@ Simple examples:
 
     // Load player names
     let result = TextFile::load_strings("player_names.txt").await;
+    Without error checking:
+    let names: Vec<String> = result.unwrap_or_default();
+
+    With error checking:
     if let Ok(names) = result {
         for name in names {
             println!("Player: {}", name);
@@ -86,9 +88,9 @@ Platform notes:
 
 use macroquad::prelude::*;
 
-// Only import quad-storage when targeting WebAssembly
+// Only import storage helpers when targeting WebAssembly
 #[cfg(target_arch = "wasm32")]
-use quad_storage;
+use gloo_storage::{errors::StorageError, LocalStorage, Storage};
 
 /// TextFile is a utility module for reading and writing text files
 /// that works across all platforms, including web.
@@ -101,22 +103,14 @@ impl TextFile {
         
         #[cfg(target_arch = "wasm32")]
         {
-            // For WebAssembly, use quad-storage which handles localStorage
-            debug!("Web: About to save data to key '{}': {}", name, &joined);
-            match std::panic::catch_unwind(|| {
-                let storage = &mut quad_storage::STORAGE.lock().unwrap();
-                storage.set(name, &joined);
-            }) {
-                Ok(_) => {
-                    debug!("Web: Successfully saved data to storage key '{}'", name);
-                    Ok(())
-                },
-                Err(_) => {
-                    let error = format!("Failed to save to storage key '{}'", name);
+            // debug!("Web: saving data to key '{}': {}", name, &joined);
+            LocalStorage::set(name, &joined)
+                .map(|_| { /* debug!("Web: saved key '{}'", name) */ })
+                .map_err(|e| {
+                    let error = format!("Failed to save to storage key '{}': {:?}", name, e);
                     error!("Web: {}", error);
-                    Err(error)
-                }
-            }
+                    error
+                })
         }
         
         #[cfg(not(target_arch = "wasm32"))]
@@ -133,26 +127,18 @@ impl TextFile {
     pub async fn load(name: &str) -> Result<Vec<String>, String> {
         #[cfg(target_arch = "wasm32")]
         {
-            // For WebAssembly, use quad-storage which handles localStorage
-            debug!("Web: About to load data from key '{}'", name);
-            match std::panic::catch_unwind(|| {
-                let storage = &quad_storage::STORAGE.lock().unwrap();
-                storage.get(name)
-            }) {
-                Ok(maybe_content) => {
-                    match maybe_content {
-                        Some(content) => {
-                            debug!("Web: Successfully loaded data from key '{}': {}", name, content);
-                            Ok(content.lines().map(|s| s.to_string()).collect())
-                        },
-                        None => {
-                            debug!("Web: No data found for key '{}'", name);
-                            Ok(Vec::new())
-                        }
-                    }
-                },
-                Err(_) => {
-                    let error = format!("Failed to load from storage key '{}'", name);
+            // debug!("Web: loading data from key '{}'", name);
+            match LocalStorage::get::<String>(name) {
+                Ok(content) => {
+                    // debug!("Web: loaded data from key '{}': {}", name, content);
+                    Ok(content.lines().map(|s| s.to_string()).collect())
+                }
+                Err(StorageError::KeyNotFound(_)) => {
+                    // debug!("Web: No data found for key '{}'", name);
+                    Ok(Vec::new())
+                }
+                Err(e) => {
+                    let error = format!("Failed to load from storage key '{}': {:?}", name, e);
                     error!("Web: {}", error);
                     Err(error)
                 }
