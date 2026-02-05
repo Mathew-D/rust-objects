@@ -86,7 +86,7 @@ Platform notes:
 - Asset loading works on both platforms, but web requires files in the assets directory
 */
 
-use macroquad::prelude::*;
+//use macroquad::prelude::*;
 
 // Only import storage helpers when targeting WebAssembly
 #[cfg(target_arch = "wasm32")]
@@ -207,7 +207,7 @@ impl TextFile {
         
         Ok(numbers)
     }
-
+/*
     /// Loads an asset file (read-only data)
     #[allow(dead_code)]
     pub async fn load_asset(path: &str) -> Result<String, String> {
@@ -216,4 +216,5 @@ impl TextFile {
             Err(e) => Err(format!("Failed to load asset '{}': {:?}", path, e))
         }
     }
+    */
 }
