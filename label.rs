@@ -150,24 +150,28 @@ impl Label {
     
     // Calculate and cache text dimensions
     fn calculate_text_dimensions(&mut self) {
-        // Split text into lines and store for later use
-        self.cached_lines = self.text.split('\n').map(String::from).collect();
         let line_height = self.font_size as f32 * self.line_spacing;
         
         // Clear previous cached values
+        self.cached_lines.clear();
         self.cached_line_dimensions.clear();
         self.cached_max_width = 0.0;
-        
-        // Calculate dimensions for each line
-        for line in &self.cached_lines {
-            let dimensions = match &self.font {
-                Some(font) => measure_text(line, Some(font), self.font_size, 1.0),
-                None => measure_text(line, None, self.font_size, 1.0),
-            };
-            self.cached_line_dimensions.push(dimensions);
-            
-            // Only update max_width if we don't have a fixed width
-            if self.fixed_width.is_none() {
+
+        if let Some(fixed_width) = self.fixed_width {
+            let wrapped = self.wrap_text_for_width((fixed_width - 10.0).max(0.0));
+            for (line, dimensions) in wrapped {
+                self.cached_max_width = self.cached_max_width.max(dimensions.width);
+                self.cached_lines.push(line);
+                self.cached_line_dimensions.push(dimensions);
+            }
+        } else {
+            // Split text into lines and store for later use
+            self.cached_lines = self.text.split('\n').map(String::from).collect();
+
+            // Calculate dimensions for each line
+            for line in &self.cached_lines {
+                let dimensions = self.measure_line(line);
+                self.cached_line_dimensions.push(dimensions);
                 self.cached_max_width = self.cached_max_width.max(dimensions.width);
             }
         }
@@ -176,6 +180,102 @@ impl Label {
         if self.fixed_height.is_none() {
             self.cached_total_height = self.cached_lines.len() as f32 * line_height;
         }
+    }
+
+    fn measure_line(&self, line: &str) -> TextDimensions {
+        match &self.font {
+            Some(font) => measure_text(line, Some(font), self.font_size, 1.0),
+            None => measure_text(line, None, self.font_size, 1.0),
+        }
+    }
+
+    fn wrap_text_for_width(&self, max_width: f32) -> Vec<(String, TextDimensions)> {
+        if max_width <= 0.0 {
+            return Vec::new();
+        }
+
+        let mut wrapped = Vec::new();
+
+        for source_line in self.text.split('\n') {
+            if source_line.trim().is_empty() {
+                let dimensions = self.measure_line("");
+                wrapped.push((String::new(), dimensions));
+                continue;
+            }
+
+            let mut current_line = String::new();
+
+            for word in source_line.split_whitespace() {
+                if self.measure_line(word).width > max_width {
+                    if !current_line.is_empty() {
+                        let current_dimensions = self.measure_line(&current_line);
+                        wrapped.push((current_line, current_dimensions));
+                        current_line = String::new();
+                    }
+
+                    let chunks = self.chunk_word(word, max_width);
+                    for (index, chunk) in chunks.iter().enumerate() {
+                        if index + 1 == chunks.len() {
+                            current_line = chunk.clone();
+                        } else {
+                            let dimensions = self.measure_line(chunk);
+                            wrapped.push((chunk.clone(), dimensions));
+                        }
+                    }
+                    continue;
+                }
+
+                let candidate = if current_line.is_empty() {
+                    word.to_string()
+                } else {
+                    format!("{} {}", current_line, word)
+                };
+
+                let candidate_fits = self.measure_line(&candidate).width <= max_width;
+                if candidate_fits || current_line.is_empty() {
+                    current_line = candidate;
+                } else {
+                    let current_dimensions = self.measure_line(&current_line);
+                    wrapped.push((current_line, current_dimensions));
+                    current_line = word.to_string();
+                }
+            }
+
+            if !current_line.is_empty() {
+                let current_dimensions = self.measure_line(&current_line);
+                wrapped.push((current_line, current_dimensions));
+            }
+        }
+
+        wrapped
+    }
+
+    fn chunk_word(&self, word: &str, max_width: f32) -> Vec<String> {
+        let mut chunks = Vec::new();
+        let mut current = String::new();
+
+        for ch in word.chars() {
+            let candidate = if current.is_empty() {
+                ch.to_string()
+            } else {
+                format!("{}{}", current, ch)
+            };
+
+            if self.measure_line(&candidate).width <= max_width {
+                current = candidate;
+            } else {
+                if !current.is_empty() {
+                    chunks.push(current);
+                }
+                current = ch.to_string();
+            }
+        }
+
+        if !current.is_empty() {
+            chunks.push(current);
+        }
+
+        chunks
     }
 
     // Method to set foreground and background colors
@@ -216,12 +316,9 @@ impl Label {
     pub fn with_fixed_size(&mut self, width: f32, height: f32) -> &mut Self {
         self.fixed_width = Some(width);
         self.fixed_height = Some(height);
-        
-        // Since we now have a fixed size, we don't need to recalculate these
-        // but we still need line dimensions for alignment
-        if self.cached_line_dimensions.is_empty() {
-            self.calculate_text_dimensions();
-        }
+
+        // Recalculate because fixed width changes wrapping.
+        self.calculate_text_dimensions();
         
         self
     }
@@ -393,13 +490,18 @@ impl Label {
         // Draw each line of text
         for (i, (line, dimensions)) in self.cached_lines.iter().zip(self.cached_line_dimensions.iter()).enumerate() {
             let y = self.y + i as f32 * line_height;
+
+            if self.fixed_height.is_some() && y > bg_y + height {
+                break;
+            }
             
             // Calculate x position based on alignment (if fixed width is set)
             let x = if let Some(fixed_width) = self.fixed_width {
+                let text_area_width = (fixed_width - 10.0).max(0.0);
                 match self.text_align {
                     TextAlign::Left => self.x,
-                    TextAlign::Center => self.x + (fixed_width / 2.0) - (dimensions.width / 2.0),
-                    TextAlign::Right => self.x + fixed_width - dimensions.width - 10.0, // 10.0 for padding
+                    TextAlign::Center => self.x + ((text_area_width - dimensions.width) / 2.0).max(0.0),
+                    TextAlign::Right => self.x + (text_area_width - dimensions.width).max(0.0),
                 }
             } else {
                 self.x
