@@ -98,7 +98,8 @@ impl StillImage {
         // Check if the asset path is empty
         if asset_path.is_empty() {
             // Create an empty/clear image
-            let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
+           // let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
+            let empty_texture = Texture2D::from_rgba8(1, 1, &[0u8; 4][..]);
             let empty_mask = Some(vec![0]); // Single transparent pixel
             
             return Self { 
@@ -315,7 +316,8 @@ impl StillImage {
     #[allow(unused)]
     pub fn clear(&mut self) {
         // Create a 1x1 transparent pixel texture
-        let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
+        let empty_texture = Texture2D::from_rgba8(1, 1, &[0u8; 4][..]);
+       // let empty_texture = Texture2D::from_rgba8(1, 1, &[0, 0, 0, 0]);
         let empty_mask = Some(vec![0]); // Single transparent pixel
         
         // Update the image object with this empty texture
