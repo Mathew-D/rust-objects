@@ -25,7 +25,7 @@ To use this:
    
    // Option 2: Preload with a built-in loading screen (best for web)
    // Using default loading screen appearance
-   tm.preload_with_loading_screen(&all_assets, None).await;
+   tm.preload_with_loading_screen(&["assets/image1.png", "assets/image2.png"]), None).await;
    
    // Using custom loading screen appearance
    let loading_options = LoadingScreenOptions {
