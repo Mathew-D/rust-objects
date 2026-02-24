@@ -25,7 +25,7 @@ To use this:
    
    // Option 2: Preload with a built-in loading screen (best for web)
    // Using default loading screen appearance
-    tm.preload_with_loading_screen(&["assets/1.png", "assets/2.png", "assets/bird2.png"], None).await;
+   tm.preload_with_loading_screen(&all_assets, None).await;
    
    // Using custom loading screen appearance
    let loading_options = LoadingScreenOptions {
@@ -190,7 +190,11 @@ impl TextureManager {
     
     /// Preload multiple textures at once
     #[allow(unused)]
-    pub async fn preload_all(&self, paths: &[&str]) {
+    pub async fn preload_all<'a, T>(&self, paths: T)
+    where
+        T: AsRef<[&'a str]>,
+    {
+        let paths = paths.as_ref();
         for path in paths {
             self.preload(path).await;
         }
@@ -233,7 +237,11 @@ impl TextureManager {
     
     /// Load assets with a built-in loading screen that works well for web
     /// This method handles all the complexities of asset loading and progress display
-    pub async fn preload_with_loading_screen(&self, assets: &[&str], options: Option<LoadingScreenOptions>) {
+    pub async fn preload_with_loading_screen<'a, T>(&self, assets: T, options: Option<LoadingScreenOptions>)
+    where
+        T: AsRef<[&'a str]>,
+    {
+        let assets = assets.as_ref();
         // Use default options if none provided
         let options = options.unwrap_or_default();
         
