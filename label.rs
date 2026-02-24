@@ -72,7 +72,7 @@ Example:
             .with_round(8.0)
             .with_border(RED, 1.5)
             .with_fixed_size(250.0, 120.0)
-            .with_alignment(objects::label::TextAlign::Center)
+            .with_alignment(modules::label::TextAlign::Center)
             .with_visibility(true); // Explicitly set visibility (default is true)
 Otherwise the default system font will be used.
 
