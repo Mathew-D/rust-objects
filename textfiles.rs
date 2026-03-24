@@ -9,7 +9,7 @@ For web support (WebAssembly) only:
     add into Cargo.toml the following:
         [target.'cfg(target_arch = "wasm32")'.dependencies]
         gloo-storage = "0.3"
-        wasm-bindgen = "0.2"
+        wasm-bindgen = "=0.2.106"
 
 
         
