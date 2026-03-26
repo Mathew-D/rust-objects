@@ -36,6 +36,8 @@ INITIAL SETUP:
    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
    ureq = { version = "2.9", features = ["json"] }
 
+8. Add use crate to screen page:
+   use crate::modules::database::{create_database_client, create_table_from_struct, DatabaseTable};
 8. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
    This will compile to WebAssembly with the wasm32 dependencies above.
 
