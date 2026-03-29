@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-December 17 2025
+Mar 29 2026
 Turso (libSQL) database module for Rust
 
 ================================
@@ -21,7 +21,7 @@ INITIAL SETUP:
    Then add these 2 new sections:
 
    [target.'cfg(target_arch = "wasm32")'.dependencies]
-   wasm-bindgen = "=0.2.106"
+   wasm-bindgen = "0.2"
    wasm-bindgen-futures = "0.4"
    js-sys = "0.3"
    web-sys = { version = "0.3", features = [
@@ -36,8 +36,6 @@ INITIAL SETUP:
    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
    ureq = { version = "2.9", features = ["json"] }
 
-8. Add use crate to screen page:
-   use crate::modules::database::{create_database_client, create_table_from_struct, DatabaseTable};
 8. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
    This will compile to WebAssembly with the wasm32 dependencies above.
 
@@ -74,26 +72,68 @@ CUSTOMIZE YOUR DATABASE SCHEMA:
 ================================
 USAGE EXAMPLES:
 ================================
+// NOTE: The table used in these examples is called 'messages'.
     let client = create_database_client();
-    
-    // Create table
-    create_table_from_struct("my_table").await?;
-    
-    // Fetch all records
-    let records: Vec<DatabaseTable> = client.fetch_table("my_table").await?;
-    
-    // Insert a record (set id to 0 - auto-generated)
-    let new_record = DatabaseTable { id: 0, text: "Hello".to_string() };
-    let id = client.insert_record("my_table", &new_record).await?;
-    
-    // Update a record
-    let count = client.update_record_by_id("my_table", 1, "text", "Updated").await?;
-    
-    // Delete a record
-    let count = client.delete_record_by_id("my_table", 1).await?;
-    
+
+    // Create table (call once at startup)
+    if let Ok(_) = create_table_from_struct("messages").await {
+        // Table created or already exists
+    } else {
+        // Handle error
+    }
+
+    // Fetch all records (for display)
+    let mut records: Vec<DatabaseTable> = Vec::new();
+    if let Ok(result) = client.fetch_table("messages").await {
+        records = result;
+        // To update a ListView with these records:
+        // update_listview(&mut list_view, &records);
+    } else {
+        // Handle error
+    }
+
+    // Insert a record (from user text input)
+    let new_record = DatabaseTable { id: 0, text: "User entered text".to_string() };
+    if let Ok(id) = client.insert_record("messages", &new_record).await {
+        // Inserted, id contains the new record's id
+    } else {
+        // Handle error
+    }
+
+    // Update a record by id (from user id and new text input)
+    if let Ok(updated_count) = client.update_record_by_id("messages", 5, "text", "New text").await {
+        // updated_count is the number of records updated
+    } else {
+        // Handle error
+    }
+
+    // Delete a record by id (from user id input)
+    if let Ok(deleted_count) = client.delete_record_by_id("messages", 5).await {
+        // deleted_count is the number of records deleted
+    } else {
+        // Handle error
+    }
+
     // Custom SQL queries
-    client.execute_sql("SELECT * FROM my_table WHERE id > 5").await?;
+    if let Ok(_) = client.execute_sql("SELECT * FROM messages WHERE id > 5").await {
+        // Query executed
+    } else {
+        // Handle error
+    }
+
+  // ---
+    // Displaying records in a ListView:
+    //Where 'list_view' is your ListView instance and 'records' is the Vec<DatabaseTable> fetched from the database.
+    //Change the items.push! line to customize how each record is displayed in the list.
+   
+   fn update_listview(list_view: &mut ListView, messages: &Vec<DatabaseTable>) {
+    list_view.clear();
+    let mut items: Vec<String> = Vec::new();
+    for (i, msg) in messages.iter().enumerate() {
+        items.push(format!("  {}: ID={}, Text={}", i + 1, msg.id, msg.text));
+    }
+    list_view.add_items(&items);
+}
 */
 
 use serde::{Deserialize, Serialize};
@@ -103,8 +143,8 @@ fn is_zero(num: &i32) -> bool {
     *num == 0
 }
 
-pub const TURSO_URL: &str = "https://testing-mathew-d.aws-us-east-2.turso.io";
-pub const TURSO_AUTH_TOKEN: &str = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjYwMDM3MzQsImlkIjoiYWJmN2VjMmQtNjI4Yy00NjQ1LTk5YWEtYjJlN2JkYmRlZjBiIiwicmlkIjoiMTc5YjVmZjktZTFlNC00YjdjLWIxYWQtMmJhYmMwOTBjNjhiIn0.BVSKprWC8aRNmi8oh6O8zHM7GsdF01d5miK3a95-UsljE6DtLk4U_iqJfHJkKA2CmvaBS706pes6I2RSUsBoCw";
+pub const TURSO_URL: &str = "PUT URL HERE";
+pub const TURSO_AUTH_TOKEN: &str = "PUT IT HERE";
 
 // ============================================================================
 // CUSTOMIZE THIS STRUCT FOR YOUR DATABASE SCHEMA
