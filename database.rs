@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-Mar 29 2026
+Mar 30 2026
 Turso (libSQL) database module for Rust
 
 ================================
@@ -35,39 +35,12 @@ INITIAL SETUP:
 
    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
    ureq = { version = "2.9", features = ["json"] }
-
-8. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
+8. Add use statement:
+    use crate::modules::database::{create_database_client, create_table_from_struct, DatabaseTable};
+9. Add to mod.rs:
+    pub mod database;
+10. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
    This will compile to WebAssembly with the wasm32 dependencies above.
-
-================================
-CUSTOMIZE YOUR DATABASE SCHEMA:
-================================
-1. Modify the DatabaseTable struct below
-   - Add/remove fields to match your table columns
-   - Use appropriate Rust types: i32 for INTEGER, String for TEXT, bool for BOOLEAN, f64 for REAL
-   - Keep id: i32 (0 for INSERT means auto-generate, populated with actual ID for SELECT)
-   - Use serde attributes for custom naming if needed
-
-2. Create your table in Turso (via CLI or SQL):
-   
-   Option A - Using Turso CLI:
-     turso db shell my-db
-     CREATE TABLE my_table (
-       id INTEGER PRIMARY KEY AUTOINCREMENT,
-       column1 TEXT NOT NULL,
-       column2 INTEGER,
-       ...
-     );
-
-   Option B - Using the Rust API:
-     Update the create_table_from_struct() function below with your schema
-
-3. Column type mapping:
-   - INTEGER → i32, i64
-   - TEXT → String
-   - REAL → f64
-   - BOOLEAN → bool
-   - NUMERIC → f64 or String
 
 ================================
 USAGE EXAMPLES:
