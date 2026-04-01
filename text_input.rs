@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-Mar 31 2026 Second Release
+April 1 2026
 Adds a text input object
 
 In your mod.rs file located in the modules folder add the following to the end of the file
@@ -505,6 +505,20 @@ impl TextInput {
     #[allow(unused)]
     pub fn set_disabled_color(&mut self, color: Color) -> &mut Self {
         self.disabled_color = color;
+        self
+    }
+
+    /// Set the maximum number of characters allowed in the text input.
+    #[allow(unused)]
+    pub fn set_max_chars(&mut self, max: usize) -> &mut Self {
+        self.max_chars = Some(max);
+        self
+    }
+
+    /// Remove the character limit (unlimited input).
+    #[allow(unused)]
+    pub fn clear_max_chars(&mut self) -> &mut Self {
+        self.max_chars = None;
         self
     }
 
