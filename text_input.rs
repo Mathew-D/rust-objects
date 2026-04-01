@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 1 2026
+April 1 2026 Second Release
 Adds a text input object
 
 In your mod.rs file located in the modules folder add the following to the end of the file
@@ -20,6 +20,9 @@ You can customize the text box using various methods:
 LIMITS AND MULTILINE:
     // Set a maximum number of characters
     txt_input.set_max_chars(50);
+
+    // Restrict input to specific characters
+    txt_input.set_allowed_chars("0123456789");
 
     // Enable multiline mode (text wraps within the box)
     txt_input.set_multiline(true);
@@ -111,9 +114,46 @@ pub struct TextInput {
     // New: Multiline and max chars support
     multiline: bool,        // If true, wraps text to next line within box
     max_chars: Option<usize>, // Optional maximum number of characters
+    allowed_chars: Option<String>, // Optional whitelist of allowed typed characters
 }
 
 impl TextInput {
+    fn is_char_allowed(&self, c: char) -> bool {
+        self.allowed_chars
+            .as_ref()
+            .map_or(true, |allowed| allowed.contains(c))
+    }
+
+    fn apply_text_constraints(&self, text: &str) -> String {
+        let mut constrained = String::new();
+
+        for c in text.chars() {
+            if c == '\n' && self.multiline {
+                constrained.push(c);
+            } else if self.is_char_allowed(c) {
+                constrained.push(c);
+            }
+
+            if self
+                .max_chars
+                .is_some_and(|max| constrained.chars().count() >= max)
+            {
+                break;
+            }
+        }
+
+        constrained
+    }
+
+    fn can_insert_char(&self, c: char) -> bool {
+        if c != '\n' && !self.is_char_allowed(c) {
+            return false;
+        }
+
+        self.max_chars
+            .map_or(true, |max| self.text.chars().count() < max)
+    }
+
     /// Returns (wrapped_lines, mapping) where mapping[byte_idx] = (line, col)
     fn get_wrapped_lines_and_mapping(&self) -> (Vec<String>, Vec<(usize, usize)>) {
         if !self.multiline {
@@ -221,6 +261,7 @@ impl TextInput {
             disabled_color: Color::new(0.7, 0.7, 0.7, 0.5), // Semi-transparent gray for disabled state
             multiline: false,
             max_chars: None,
+            allowed_chars: None,
         }
     }
 
@@ -332,10 +373,8 @@ impl TextInput {
     // Set the text content - now accepts both String and &str
     #[allow(unused)]
     pub fn set_text<T: Into<String>>(&mut self, text: T) -> &mut Self {
-        self.text = text.into();
-        if self.cursor_index > self.text.len() {
-            self.cursor_index = self.text.len();
-        }
+        self.text = self.apply_text_constraints(&text.into());
+        self.ensure_cursor_validity();
         self
     }
     
@@ -522,6 +561,27 @@ impl TextInput {
         self
     }
 
+    /// Restrict text input to only the characters in the provided whitelist.
+    #[allow(unused)]
+    pub fn set_allowed_chars<T: Into<String>>(&mut self, allowed_chars: T) -> &mut Self {
+        self.allowed_chars = Some(allowed_chars.into());
+        self.text = self.apply_text_constraints(&self.text);
+        self.ensure_cursor_validity();
+        self
+    }
+
+    /// Remove any character whitelist and allow all characters again.
+    #[allow(unused)]
+    pub fn clear_allowed_chars(&mut self) -> &mut Self {
+        self.allowed_chars = None;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn get_allowed_chars(&self) -> Option<&str> {
+        self.allowed_chars.as_deref()
+    }
+
     // Primary method - both updates and draws the textbox
     #[allow(unused)]
     pub fn draw(&mut self) {
@@ -598,22 +658,17 @@ impl TextInput {
         if self.active {
             // Handle typing
             while let Some(c) = get_char_pressed() {
-                if !c.is_control() {
-                    // Enforce max_chars if set
-                    if self.max_chars.map_or(true, |max| self.text.chars().count() < max) {
-                        self.text.insert(self.cursor_index, c);
-                        self.cursor_index += c.len_utf8();
-                        self.ensure_cursor_validity();
-                    }
+                if !c.is_control() && self.can_insert_char(c) {
+                    self.text.insert(self.cursor_index, c);
+                    self.cursor_index += c.len_utf8();
+                    self.ensure_cursor_validity();
                 }
             }
             // Handle Enter key for multiline
-            if self.multiline && is_key_pressed(KeyCode::Enter) {
-                if self.max_chars.map_or(true, |max| self.text.chars().count() < max) {
-                    self.text.insert(self.cursor_index, '\n');
-                    self.cursor_index += 1;
-                    self.ensure_cursor_validity();
-                }
+            if self.multiline && is_key_pressed(KeyCode::Enter) && self.can_insert_char('\n') {
+                self.text.insert(self.cursor_index, '\n');
+                self.cursor_index += 1;
+                self.ensure_cursor_validity();
             }
 
             // Initial key presses
