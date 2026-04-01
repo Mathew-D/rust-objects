@@ -80,21 +80,26 @@ USAGE EXAMPLES:
 
     // Fetch all records (for display)
     let mut records: Vec<DatabaseTable> = Vec::new();
-    if let Ok(result) = client.fetch_table("messages").await {
+    let fetched_results = client.fetch_table("messages").await;
+    if let Ok(result) = fetched_results {
         records = result;
-        // To update a ListView with these records:
+       // To update a ListView with these records:
         // update_listview(&mut list_view, &records);
+        }
     } else {
-        // Handle error
+       println!("Error fetching records from database: {} ",fetched_results.err().unwrap());
     }
+   
 
     // Insert a record (from user text input)
     let new_record = DatabaseTable { id: 0, text: "User entered text".to_string() };
-    if let Ok(id) = client.insert_record("messages", &new_record).await {
+    let insert_results =  client.insert_record("messages", &new_record).await;
+    if let Ok(id) = insert_results {
         // Inserted, id contains the new record's id
     } else {
-        // Handle error
+        println!("Error inserting records from database: {} ",insert_results.err().unwrap());
     }
+
 
     // Update a record by id (Can only do one column at a time with this method)
     if let Ok(updated_count) = client.update_record_by_id("messages", 5, "text", "New text").await {
@@ -146,7 +151,7 @@ use serde::{Deserialize, Serialize};
 fn is_zero(num: &i32) -> bool {
     *num == 0
 }
-
+// Please replace the libsql:// from the URL with https:
 pub const TURSO_URL: &str = "URL_HERE";
 pub const TURSO_AUTH_TOKEN: &str = "TOKEN_HERE";
 
