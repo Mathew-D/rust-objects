@@ -237,34 +237,6 @@ pub struct DatabaseClient {
 }
 
 impl DatabaseClient {
-    /// Update all non-id fields of a DatabaseTable by id
-    #[allow(unused)]
-    pub async fn update_record_by_struct(
-        &self,
-        table: &str,
-        record: &DatabaseTable,
-    ) -> Result<i64, Box<dyn std::error::Error>> {
-        let json = serde_json::to_value(record)?;
-        let obj = json.as_object().ok_or("Record must be an object")?;
-        let mut set_clause = Vec::new();
-        for (k, v) in obj.iter() {
-            if k == "id" {
-                continue;
-            }
-            let value_str = self.value_to_sql(v);
-            set_clause.push(format!("{} = {}", k, value_str));
-        }
-        if set_clause.is_empty() {
-            return Ok(0);
-        }
-        let sql = format!(
-            "UPDATE {} SET {} WHERE id = {}",
-            table,
-            set_clause.join(", "),
-            record.id
-        );
-        self.execute_sql(&sql).await
-    }
     pub fn new(base_url: String, auth_token: String) -> Self {
         Self { base_url, auth_token }
     }
@@ -301,44 +273,19 @@ impl DatabaseClient {
         let json = serde_json::to_value(record)?;
         let obj = json.as_object().ok_or("Record must be an object")?;
 
-        let columns: Vec<&str> = obj
-            .keys()
-            .filter(|k| *k != "id")
-            .map(|s| s.as_str())
-            .collect();
+        let columns: Vec<&str> = obj.keys().filter(|k| *k != "id").map(|s| s.as_str()).collect();
 
-        let values: Vec<String> = obj
-            .iter()
-            .filter(|(k, _)| *k != "id")
-            .map(|(_, v)| self.value_to_sql(v))
-            .collect();
+        let values: Vec<String> = obj.iter().filter(|(k, _)| *k != "id").map(|(_, v)| self.value_to_sql(v)).collect();
 
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES ({})",
-            table,
-            columns.join(", "),
-            values.join(", ")
-        );
+        let sql = format!("INSERT INTO {} ({}) VALUES ({})", table, columns.join(", "), values.join(", "));
 
         let response = self.execute_query(&sql).await?;
         self.extract_last_insert_id(&response)
     }
 
     #[allow(unused)]
-    pub async fn update_record_by_id(
-        &self,
-        table: &str,
-        id: i64,
-        column: &str,
-        value: &str,
-    ) -> Result<i64, Box<dyn std::error::Error>> {
-        let sql = format!(
-            "UPDATE {} SET {} = '{}' WHERE id = {}",
-            table,
-            column,
-            value.replace("'", "''"),
-            id
-        );
+    pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &str) -> Result<i64, Box<dyn std::error::Error>> {
+        let sql = format!("UPDATE {} SET {} = '{}' WHERE id = {}", table, column, value.replace("'", "''"), id);
         self.execute_sql(&sql).await
     }
 
@@ -385,10 +332,7 @@ impl DatabaseClient {
             .and_then(|resp| resp.get("result"))
             .ok_or("Invalid response structure")?;
 
-        let rows = result
-            .get("rows")
-            .and_then(|r| r.as_array())
-            .ok_or("No rows in response")?;
+        let rows = result.get("rows").and_then(|r| r.as_array()).ok_or("No rows in response")?;
 
         let mut tables = Vec::new();
         for row in rows {
@@ -449,18 +393,14 @@ impl DatabaseClient {
             .ok_or("Invalid response structure")?;
 
         let result_obj = result.as_object().ok_or("Result is not an object")?;
-        
+
         // Get columns array
         let columns = match result_obj.get("cols").and_then(|c| c.as_array()) {
             Some(cols) => cols,
             None => return Ok(Vec::new()), // No columns means no data
         };
 
-        let rows = result_obj
-            .get("rows")
-            .and_then(|r| r.as_array())
-            .map(|r| r.clone())
-            .unwrap_or_default();
+        let rows = result_obj.get("rows").and_then(|r| r.as_array()).map(|r| r.clone()).unwrap_or_default();
 
         let mut records = Vec::new();
 
@@ -472,30 +412,35 @@ impl DatabaseClient {
                 if let Some(col_obj) = col_info.as_object() {
                     if let Some(col_name) = col_obj.get("name").and_then(|n| n.as_str()) {
                         if let Some(cell) = row_array.get(i) {
-                            // Cell format: {"type": "...", "value": "..."}
-                            if let Some(value_str) = cell.get("value").and_then(|v| v.as_str()) {
-                                // Get the decltype to determine how to parse the value
-                                let decltype = col_obj.get("decltype").and_then(|dt| dt.as_str()).unwrap_or("");
-                                
-                                // Convert string value to appropriate JSON type based on decltype
-                                let json_value = if decltype.to_uppercase().contains("INT") {
-                                    // Try to parse as integer
-                                    match value_str.parse::<i64>() {
-                                        Ok(i) => serde_json::json!(i),
-                                        Err(_) => serde_json::Value::String(value_str.to_string())
-                                    }
-                                } else if decltype.to_uppercase().contains("REAL") || decltype.to_uppercase().contains("FLOAT") {
-                                    // Try to parse as float
-                                    match value_str.parse::<f64>() {
-                                        Ok(f) => serde_json::json!(f),
-                                        Err(_) => serde_json::Value::String(value_str.to_string())
+                            // Cell format: {"type": "...", "value": ...}
+                            if let Some(value) = cell.get("value") {
+                                let json_value = if value.is_null() {
+                                    serde_json::Value::Null
+                                } else if let Some(value_str) = value.as_str() {
+                                    // Get the decltype to determine how to parse the value
+                                    let decltype = col_obj.get("decltype").and_then(|dt| dt.as_str()).unwrap_or("");
+
+                                    // Convert string value to appropriate JSON type based on decltype
+                                    if decltype.to_uppercase().contains("INT") {
+                                        match value_str.parse::<i64>() {
+                                            Ok(i) => serde_json::json!(i),
+                                            Err(_) => serde_json::Value::String(value_str.to_string()),
+                                        }
+                                    } else if decltype.to_uppercase().contains("REAL") || decltype.to_uppercase().contains("FLOAT") {
+                                        match value_str.parse::<f64>() {
+                                            Ok(f) => serde_json::json!(f),
+                                            Err(_) => serde_json::Value::String(value_str.to_string()),
+                                        }
+                                    } else {
+                                        serde_json::Value::String(value_str.to_string())
                                     }
                                 } else {
-                                    // Keep as string for TEXT and other types
-                                    serde_json::Value::String(value_str.to_string())
+                                    value.clone()
                                 };
-                                
+
                                 obj.insert(col_name.to_string(), json_value);
+                            } else {
+                                obj.insert(col_name.to_string(), serde_json::Value::Null);
                             }
                         }
                     }
@@ -520,7 +465,8 @@ impl DatabaseClient {
             .and_then(|r| r.get("response"))
             .and_then(|resp| resp.get("result"))
             .and_then(|result| {
-                result.get("affected_row_count")
+                result
+                    .get("affected_row_count")
                     .or_else(|| result.get("changes"))
                     .or_else(|| result.get("rows_affected"))
                     .and_then(|n| n.as_i64())
@@ -554,14 +500,14 @@ impl DatabaseClient {
             if let Some(last_id) = result_obj.get("last_row_id").and_then(|n| n.as_i64()) {
                 return Ok(last_id);
             }
-            
+
             // If neither field exists, try to use affected_row_count
             if let Some(affected) = result_obj.get("affected_row_count").and_then(|n| n.as_i64()) {
                 if affected > 0 {
                     return Ok(1); // Insert was successful but ID unavailable, return 1 as placeholder
                 }
             }
-            
+
             return Err("Failed to get last insert ID from response".into());
         }
 
@@ -600,30 +546,21 @@ impl DatabaseClient {
             .map_err(|e| format!("Failed to set Content-Type: {:?}", e))?;
         opts.set_headers(&headers);
 
-        let req = Request::new_with_str_and_init(&url, &opts)
-            .map_err(|e| format!("Failed to build request: {:?}", e))?;
+        let req = Request::new_with_str_and_init(&url, &opts).map_err(|e| format!("Failed to build request: {:?}", e))?;
         let win = window().ok_or("Failed to get window")?;
         let resp_value = JsFuture::from(win.fetch_with_request(&req))
             .await
             .map_err(|e| format!("Fetch failed: {:?}", e))?;
-        let resp: Response = resp_value
-            .dyn_into()
-            .map_err(|e| format!("Failed to cast response: {:?}", e))?;
+        let resp: Response = resp_value.dyn_into().map_err(|e| format!("Failed to cast response: {:?}", e))?;
 
         if !resp.ok() {
             return Err(format!("HTTP error: {}", resp.status()).into());
         }
 
-        let text_promise = resp
-            .text()
-            .map_err(|e| format!("resp.text() failed: {:?}", e))?;
+        let text_promise = resp.text().map_err(|e| format!("resp.text() failed: {:?}", e))?;
 
-        let text_value = JsFuture::from(text_promise)
-            .await
-            .map_err(|e| format!("Failed to read text: {:?}", e))?;
-        text_value
-            .as_string()
-            .ok_or("Failed to convert to string".into())
+        let text_value = JsFuture::from(text_promise).await.map_err(|e| format!("Failed to read text: {:?}", e))?;
+        text_value.as_string().ok_or("Failed to convert to string".into())
     }
 
     #[allow(unused)]
@@ -638,12 +575,11 @@ impl DatabaseClient {
         match response {
             Ok(resp) => Ok(resp.into_string()?),
             Err(ureq::Error::Status(code, response)) => {
-                let error_body = response
-                    .into_string()
-                    .unwrap_or_else(|_| "Could not read error body".to_string());
+                let error_body = response.into_string().unwrap_or_else(|_| "Could not read error body".to_string());
                 Err(format!("HTTP {} error: {}", code, error_body).into())
             }
             Err(e) => Err(e.into()),
         }
     }
 }
+
