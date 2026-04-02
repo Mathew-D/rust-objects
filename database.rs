@@ -37,7 +37,7 @@ INITIAL SETUP:
    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
    ureq = { version = "2.9", features = ["json"] }
 8. Add use statement:
-    use crate::modules::database::{create_database_client, create_table_from_struct, DatabaseTable};
+    use crate::modules::database::{create_database_client, DatabaseTable};
 9. Add to mod.rs:
     pub mod database;
 10. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
