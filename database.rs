@@ -3,6 +3,7 @@ Made by: Mathew Dusome
 Mar 30 2026
 Turso (libSQL) database module for Rust
 
+April 2: Dray52 Added fetch by id with examples
 ================================
 INITIAL SETUP:
 ================================
@@ -89,7 +90,14 @@ USAGE EXAMPLES:
     } else {
        println!("Error fetching records from database: {} ",fetched_results.err().unwrap());
     }
-   
+
+     if let Ok(Some(record)) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("Successfully fetched record from database.");
+      else if let Ok(None) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("No record found with id {}", id);
+      } else if let Err(err) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("Error fetching record from database: {}", err);
+      }
 
     // Insert a record (from user text input)
     let new_record = DatabaseTable { id: 0, text: "User entered text".to_string() };
@@ -287,7 +295,18 @@ impl DatabaseClient {
         let response = self.execute_query(&sql).await?;
         self.extract_last_insert_id(&response)
     }
-
+    #[allow(unused)]
+       pub async fn fetch_record_by_id<T>(&self, table: &str, id: i64) -> Result<Option<T>, Box<dyn std::error::Error>>
+       where
+           T: for<'de> Deserialize<'de>,
+       {
+           // Returns the full row for the given id.
+           // Call this with `DatabaseTable` to access fields like `movie_name`.
+           // limit 1 says send at most 1 row.
+           let sql = format!("SELECT * FROM {} WHERE id = {} LIMIT 1", table, id);
+           let mut results = self.fetch_with_sql(&sql).await?;
+           Ok(results.pop())
+       }
     #[allow(unused)]
     pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &str) -> Result<i64, Box<dyn std::error::Error>> {
         let sql = format!("UPDATE {} SET {} = '{}' WHERE id = {}", table, column, value.replace("'", "''"), id);
