@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-Mar 30 2026
+April 2 2026 
 Turso (libSQL) database module for Rust
 
 April 2: Dray52 Added fetch by id with examples
@@ -254,6 +254,35 @@ impl DatabaseClient {
         Self { base_url, auth_token }
     }
 
+   #[allow(unused)]
+    pub async fn update_record_by_struct(
+        &self,
+        table: &str,
+        record: &DatabaseTable,
+    ) -> Result<i64, Box<dyn std::error::Error>> {
+        let json = serde_json::to_value(record)?;
+        let obj = json.as_object().ok_or("Record must be an object")?;
+        let mut set_clause = Vec::new();
+        for (k, v) in obj.iter() {
+            if k == "id" {
+                continue;
+            }
+            let value_str = self.value_to_sql(v);
+            set_clause.push(format!("{} = {}", k, value_str));
+        }
+        if set_clause.is_empty() {
+            return Ok(0);
+        }
+        let sql = format!(
+            "UPDATE {} SET {} WHERE id = {}",
+            table,
+            set_clause.join(", "),
+            record.id
+        );
+        self.execute_sql(&sql).await
+    }
+
+   
     #[allow(unused)]
     pub async fn fetch_table(&self, table: &str) -> Result<Vec<DatabaseTable>, Box<dyn std::error::Error>> {
         let sql = format!("SELECT * FROM {} ORDER BY id", table);
