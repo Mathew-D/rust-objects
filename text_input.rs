@@ -115,6 +115,8 @@ pub struct TextInput {
     multiline: bool,        // If true, wraps text to next line within box
     max_chars: Option<usize>, // Optional maximum number of characters
     allowed_chars: Option<String>, // Optional whitelist of allowed typed characters
+    selection_anchor: Option<usize>, // Selection anchor byte index for range selection
+    is_dragging_selection: bool, // Tracks active mouse drag selection
 }
 
 impl TextInput {
@@ -146,6 +148,10 @@ impl TextInput {
     }
 
     fn can_insert_char(&self, c: char) -> bool {
+        if c == '\n' && !self.multiline {
+            return false;
+        }
+
         if c != '\n' && !self.is_char_allowed(c) {
             return false;
         }
@@ -232,6 +238,106 @@ impl TextInput {
                 self.cursor_index -= 1;
             }
         }
+
+    fn get_selection_range(&self) -> Option<(usize, usize)> {
+        let anchor = self.selection_anchor?;
+        let mut start = anchor.min(self.cursor_index);
+        let mut end = anchor.max(self.cursor_index);
+
+        while start > 0 && !self.text.is_char_boundary(start) {
+            start -= 1;
+        }
+        while end > 0 && end < self.text.len() && !self.text.is_char_boundary(end) {
+            end -= 1;
+        }
+
+        if start == end {
+            None
+        } else {
+            Some((start, end))
+        }
+    }
+
+    fn clear_selection(&mut self) {
+        self.selection_anchor = None;
+    }
+
+    fn delete_selection(&mut self) -> bool {
+        if let Some((start, end)) = self.get_selection_range() {
+            self.text.replace_range(start..end, "");
+            self.cursor_index = start;
+            self.ensure_cursor_validity();
+            self.clear_selection();
+            return true;
+        }
+        false
+    }
+
+    fn index_from_local_point(&self, local_x: f32, local_y: f32) -> usize {
+        if self.text.is_empty() {
+            return 0;
+        }
+
+        let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
+        if wrapped_lines.is_empty() {
+            return self.text.len();
+        }
+
+        let line_height = self.font_size + 2.0;
+        let mut clicked_line = (local_y / line_height).floor() as isize;
+        if clicked_line < 0 {
+            clicked_line = 0;
+        }
+        let clicked_line = (clicked_line as usize).min(wrapped_lines.len().saturating_sub(1));
+
+        let mut col = 0usize;
+        let mut x_offset = 0.0;
+        let font = self.font.as_ref();
+        let line = &wrapped_lines[clicked_line];
+        for (i, c) in line.chars().enumerate() {
+            let c_width = measure_text(&c.to_string(), font, self.font_size as u16, 1.0).width;
+            if x_offset + c_width / 2.0 > local_x {
+                break;
+            }
+            x_offset += c_width;
+            col = i + 1;
+        }
+
+        let mut last_match = None;
+        for (byte_idx, &(line_idx, ccol)) in mapping.iter().enumerate() {
+            if line_idx == clicked_line && ccol == col {
+                last_match = Some(byte_idx);
+            }
+        }
+
+        last_match.unwrap_or(self.text.len())
+    }
+
+    fn horizontal_offset_for_col(&self, line: &str, col: usize) -> f32 {
+        let font = self.font.as_ref();
+        line.chars()
+            .take(col)
+            .map(|c| measure_text(&c.to_string(), font, self.font_size as u16, 1.0).width)
+            .sum()
+    }
+
+    fn line_col_for_index(
+        &self,
+        mapping: &[(usize, usize)],
+        wrapped_lines: &[String],
+        index: usize,
+    ) -> (usize, usize) {
+        let idx = index.min(self.text.len());
+        if idx < mapping.len() {
+            mapping[idx]
+        } else {
+            (
+                wrapped_lines.len().saturating_sub(1),
+                wrapped_lines.last().map(|l| l.chars().count()).unwrap_or(0),
+            )
+        }
+    }
+
     pub fn new(x: f32, y: f32, width: f32, height: f32, font_size: f32) -> Self {
                 Self {
                         preferred_col: None,
@@ -262,6 +368,8 @@ impl TextInput {
             multiline: false,
             max_chars: None,
             allowed_chars: None,
+            selection_anchor: None,
+            is_dragging_selection: false,
         }
     }
 
@@ -375,6 +483,7 @@ impl TextInput {
     pub fn set_text<T: Into<String>>(&mut self, text: T) -> &mut Self {
         self.text = self.apply_text_constraints(&text.into());
         self.ensure_cursor_validity();
+        self.clear_selection();
         self
     }
     
@@ -387,6 +496,10 @@ impl TextInput {
     #[allow(unused)]
     pub fn set_active(&mut self, active: bool) -> &mut Self {
         self.active = active;
+        if !active {
+            self.clear_selection();
+            self.is_dragging_selection = false;
+        }
         self
     }
 
@@ -400,6 +513,7 @@ impl TextInput {
     pub fn set_cursor_index(&mut self, index: usize) -> &mut Self {
         if index <= self.text.len() {
             self.cursor_index = index;
+            self.clear_selection();
         }
         self
     }
@@ -532,6 +646,8 @@ impl TextInput {
         self.enabled = enabled;
         if !enabled {
             self.active = false; // Deactivate if disabled
+            self.clear_selection();
+            self.is_dragging_selection = false;
         }
         self
     }
@@ -607,6 +723,8 @@ impl TextInput {
         if !self.enabled {
             self.active = false;
             self.cursor_visible = false;
+            self.clear_selection();
+            self.is_dragging_selection = false;
             return;
         }
 
@@ -617,58 +735,90 @@ impl TextInput {
             if self.active {
                 let text_x = self.x + 5.0;
                 let text_y = self.y + 5.0;
-                let mouse_x = mx - text_x;
-                let mouse_y = my - text_y;
-                let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
-                // Determine which line was clicked
-                let line_height = self.font_size + 2.0;
-                let clicked_line = (mouse_y / line_height).floor() as usize;
-                let clicked_line = clicked_line.min(wrapped_lines.len().saturating_sub(1));
-                // Now, find the closest column in that line
-                let mut col = 0;
-                let mut x_offset = 0.0;
-                let font = self.font.as_ref();
-                if clicked_line < wrapped_lines.len() {
-                    let line = &wrapped_lines[clicked_line];
-                    for (i, c) in line.chars().enumerate() {
-                        let c_width = measure_text(&c.to_string(), font, self.font_size as u16, 1.0).width;
-                        if x_offset + c_width / 2.0 > mouse_x {
-                            break;
-                        }
-                        x_offset += c_width;
-                        col = i + 1;
-                    }
-                }
-                // Find the last byte index in mapping that matches (clicked_line, col)
-                let mut last_match = None;
-                for (byte_idx, &(line, ccol)) in mapping.iter().enumerate() {
-                    if line == clicked_line && ccol == col {
-                        last_match = Some(byte_idx);
-                    }
-                }
-                if let Some(byte_idx) = last_match {
-                    self.cursor_index = byte_idx;
-                } else {
-                    self.cursor_index = self.text.len();
-                }
+                let new_cursor = self.index_from_local_point(mx - text_x, my - text_y);
+                self.cursor_index = new_cursor;
                 self.ensure_cursor_validity();
+                self.selection_anchor = Some(self.cursor_index);
+                self.is_dragging_selection = true;
+                self.cursor_visible = true;
+                self.cursor_timer = 0.0;
+            } else {
+                self.clear_selection();
+                self.is_dragging_selection = false;
             }
+        }
+
+        if self.active && self.is_dragging_selection && is_mouse_button_down(MouseButton::Left) {
+            let (mx, my) = mouse_position();
+            let text_x = self.x + 5.0;
+            let text_y = self.y + 5.0;
+            self.cursor_index = self.index_from_local_point(mx - text_x, my - text_y);
+            self.ensure_cursor_validity();
+            self.cursor_visible = true;
+            self.cursor_timer = 0.0;
+        }
+
+        if is_mouse_button_released(MouseButton::Left) {
+            self.is_dragging_selection = false;
         }
     
         if self.active {
-            // Handle typing
-            while let Some(c) = get_char_pressed() {
-                if !c.is_control() && self.can_insert_char(c) {
-                    self.text.insert(self.cursor_index, c);
-                    self.cursor_index += c.len_utf8();
+            let shortcut_mod_down = is_key_down(KeyCode::LeftControl)
+                || is_key_down(KeyCode::RightControl)
+                || is_key_down(KeyCode::LeftSuper)
+                || is_key_down(KeyCode::RightSuper)
+                || is_key_pressed(KeyCode::LeftControl)
+                || is_key_pressed(KeyCode::RightControl)
+                || is_key_pressed(KeyCode::LeftSuper)
+                || is_key_pressed(KeyCode::RightSuper);
+            let mut consumed_shortcut = false;
+
+            if shortcut_mod_down {
+                if is_key_pressed(KeyCode::A) {
+                    self.selection_anchor = Some(0);
+                    self.cursor_index = self.text.len();
                     self.ensure_cursor_validity();
+                    consumed_shortcut = true;
+                } else if is_key_pressed(KeyCode::C)
+                    || is_key_pressed(KeyCode::X)
+                    || is_key_pressed(KeyCode::V)
+                {
+                    consumed_shortcut = true;
+                }
+            }
+
+            if consumed_shortcut {
+                self.cursor_visible = true;
+                self.cursor_timer = 0.0;
+                self.last_key = None;
+            }
+
+            // Handle typing
+            if shortcut_mod_down {
+                // Avoid leaking Ctrl/Cmd shortcut letters into the input buffer.
+                while get_char_pressed().is_some() {}
+            } else if !consumed_shortcut {
+                while let Some(c) = get_char_pressed() {
+                    if !c.is_control() {
+                        self.delete_selection();
+                    }
+                    if !c.is_control() && self.can_insert_char(c) {
+                        self.text.insert(self.cursor_index, c);
+                        self.cursor_index += c.len_utf8();
+                        self.ensure_cursor_validity();
+                        self.clear_selection();
+                    }
                 }
             }
             // Handle Enter key for multiline
+            if self.multiline && is_key_pressed(KeyCode::Enter) {
+                self.delete_selection();
+            }
             if self.multiline && is_key_pressed(KeyCode::Enter) && self.can_insert_char('\n') {
                 self.text.insert(self.cursor_index, '\n');
                 self.cursor_index += 1;
                 self.ensure_cursor_validity();
+                self.clear_selection();
             }
 
             // Initial key presses
@@ -678,40 +828,81 @@ impl TextInput {
             let key_right_pressed = is_key_pressed(KeyCode::Right);
             let key_up_pressed = is_key_pressed(KeyCode::Up);
             let key_down_pressed = is_key_pressed(KeyCode::Down);
+            let shift_down = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
 
             // Handle initial key presses
-            if key_delete_pressed && self.cursor_index < self.text.len() {
-                if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
-                    let char_len = c.len_utf8();
-                    self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
-                    self.ensure_cursor_validity();
+            if key_delete_pressed {
+                if !self.delete_selection() && self.cursor_index < self.text.len() {
+                    if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
+                        let char_len = c.len_utf8();
+                        self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
+                        self.ensure_cursor_validity();
+                    }
                 }
                 self.last_key = Some(KeyCode::Delete);
                 self.key_repeat_timer = 0.0;
-            } else if key_backspace_pressed && self.cursor_index > 0 {
-                if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
-                    self.text.replace_range(prev_offset..self.cursor_index, "");
-                    self.cursor_index = prev_offset;
-                    self.ensure_cursor_validity();
+            } else if key_backspace_pressed {
+                if !self.delete_selection() && self.cursor_index > 0 {
+                    if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
+                        self.text.replace_range(prev_offset..self.cursor_index, "");
+                        self.cursor_index = prev_offset;
+                        self.ensure_cursor_validity();
+                    }
                 }
                 self.last_key = Some(KeyCode::Backspace);
                 self.key_repeat_timer = 0.0;
             } else if key_left_pressed && self.cursor_index > 0 {
-                let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
-                let char_len = prev_char.len_utf8();
-                self.cursor_index -= char_len;
-                self.ensure_cursor_validity();
-                self.last_key = Some(KeyCode::Left);
-                self.key_repeat_timer = 0.0;
-                self.preferred_col = None;
+                let mut collapse_only = false;
+                if shift_down {
+                    if self.selection_anchor.is_none() {
+                        self.selection_anchor = Some(self.cursor_index);
+                    }
+                } else if let Some((start, _end)) = self.get_selection_range() {
+                    self.cursor_index = start;
+                    self.clear_selection();
+                    self.ensure_cursor_validity();
+                    collapse_only = true;
+                    self.last_key = Some(KeyCode::Left);
+                    self.key_repeat_timer = 0.0;
+                    self.preferred_col = None;
+                } else {
+                    self.clear_selection();
+                }
+                if !collapse_only {
+                    let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
+                    let char_len = prev_char.len_utf8();
+                    self.cursor_index -= char_len;
+                    self.ensure_cursor_validity();
+                    self.last_key = Some(KeyCode::Left);
+                    self.key_repeat_timer = 0.0;
+                    self.preferred_col = None;
+                }
             } else if key_right_pressed && self.cursor_index < self.text.len() {
-                let next_char = self.text[self.cursor_index..].chars().next().unwrap();
-                let char_len = next_char.len_utf8();
-                self.cursor_index += char_len;
-                self.ensure_cursor_validity();
-                self.last_key = Some(KeyCode::Right);
-                self.key_repeat_timer = 0.0;
-                self.preferred_col = None;
+                let mut collapse_only = false;
+                if shift_down {
+                    if self.selection_anchor.is_none() {
+                        self.selection_anchor = Some(self.cursor_index);
+                    }
+                } else if let Some((_start, end)) = self.get_selection_range() {
+                    self.cursor_index = end;
+                    self.clear_selection();
+                    self.ensure_cursor_validity();
+                    collapse_only = true;
+                    self.last_key = Some(KeyCode::Right);
+                    self.key_repeat_timer = 0.0;
+                    self.preferred_col = None;
+                } else {
+                    self.clear_selection();
+                }
+                if !collapse_only {
+                    let next_char = self.text[self.cursor_index..].chars().next().unwrap();
+                    let char_len = next_char.len_utf8();
+                    self.cursor_index += char_len;
+                    self.ensure_cursor_validity();
+                    self.last_key = Some(KeyCode::Right);
+                    self.key_repeat_timer = 0.0;
+                    self.preferred_col = None;
+                }
             } else if self.multiline && (key_up_pressed || key_down_pressed) {
                 // Robust multiline up/down navigation using mapping
                 let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
@@ -721,6 +912,13 @@ impl TextInput {
                 } else {
                     (wrapped_lines.len().saturating_sub(1), wrapped_lines.last().map(|l| l.chars().count()).unwrap_or(0))
                 };
+                if shift_down {
+                    if self.selection_anchor.is_none() {
+                        self.selection_anchor = Some(self.cursor_index);
+                    }
+                } else {
+                    self.clear_selection();
+                }
                 // Store preferred_col for vertical navigation
                 if self.preferred_col.is_none() {
                     self.preferred_col = Some(cur_col);
@@ -751,7 +949,7 @@ impl TextInput {
                     }
                 }
                 // Reset preferred_col if left/right or typing
-                if key_left_pressed || key_right_pressed || get_char_pressed().is_some() {
+                if key_left_pressed || key_right_pressed {
                     self.preferred_col = None;
                 }
             }
@@ -765,6 +963,14 @@ impl TextInput {
                         match key {
                             KeyCode::Left => {
                                 if self.cursor_index > 0 {
+                                    let shift_repeat_down = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
+                                    if shift_repeat_down {
+                                        if self.selection_anchor.is_none() {
+                                            self.selection_anchor = Some(self.cursor_index);
+                                        }
+                                    } else {
+                                        self.clear_selection();
+                                    }
                                     let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
                                     let char_len = prev_char.len_utf8();
                                     self.cursor_index -= char_len;
@@ -773,6 +979,14 @@ impl TextInput {
                             }
                             KeyCode::Right => {
                                 if self.cursor_index < self.text.len() {
+                                    let shift_repeat_down = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
+                                    if shift_repeat_down {
+                                        if self.selection_anchor.is_none() {
+                                            self.selection_anchor = Some(self.cursor_index);
+                                        }
+                                    } else {
+                                        self.clear_selection();
+                                    }
                                     let next_char = self.text[self.cursor_index..].chars().next().unwrap();
                                     let char_len = next_char.len_utf8();
                                     self.cursor_index += char_len;
@@ -780,7 +994,7 @@ impl TextInput {
                                 }
                             }
                             KeyCode::Delete => {
-                                if self.cursor_index < self.text.len() {
+                                if !self.delete_selection() && self.cursor_index < self.text.len() {
                                     if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
                                         let char_len = c.len_utf8();
                                         self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
@@ -789,7 +1003,7 @@ impl TextInput {
                                 }
                             }
                             KeyCode::Backspace => {
-                                if self.cursor_index > 0 {
+                                if !self.delete_selection() && self.cursor_index > 0 {
                                     if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
                                         self.text.replace_range(prev_offset..self.cursor_index, "");
                                         self.cursor_index = prev_offset;
@@ -822,6 +1036,7 @@ impl TextInput {
         let padding = 5.0;
         let text_x = self.x + padding;
         let text_y = self.y + self.font_size + padding;
+        let line_height = self.font_size + 2.0;
 
         // Draw the background with customizable colors (or disabled color when disabled)
         if self.enabled {
@@ -832,6 +1047,35 @@ impl TextInput {
 
         let text_color = if self.enabled { self.text_color } else { GRAY };
         let prompt_color = if self.enabled { self.prompt_color } else { GRAY };
+
+        // Draw text selection highlight before text so glyphs remain readable.
+        if self.enabled && self.active {
+            if let Some((sel_start, sel_end)) = self.get_selection_range() {
+                let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
+                if !wrapped_lines.is_empty() {
+                    let (start_line, start_col) = self.line_col_for_index(&mapping, &wrapped_lines, sel_start);
+                    let (end_line, end_col) = self.line_col_for_index(&mapping, &wrapped_lines, sel_end);
+                    let select_color = Color::new(0.2, 0.45, 0.95, 0.35);
+
+                    for line_idx in start_line..=end_line {
+                        if line_idx >= wrapped_lines.len() {
+                            break;
+                        }
+                        let line = &wrapped_lines[line_idx];
+                        let line_len = line.chars().count();
+                        let from_col = if line_idx == start_line { start_col.min(line_len) } else { 0 };
+                        let to_col = if line_idx == end_line { end_col.min(line_len) } else { line_len };
+
+                        if to_col > from_col {
+                            let start_x = text_x + self.horizontal_offset_for_col(line, from_col);
+                            let end_x = text_x + self.horizontal_offset_for_col(line, to_col);
+                            let y = text_y + line_idx as f32 * line_height - self.font_size * 0.8;
+                            draw_rectangle(start_x, y, end_x - start_x, self.font_size + 6.0, select_color);
+                        }
+                    }
+                }
+            }
+        }
 
         // Draw text (with wrapping if multiline)
         if self.text.is_empty() {
@@ -886,21 +1130,14 @@ impl TextInput {
                 // Use the same mapping as navigation for accurate cursor placement
                 let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
                 let cursor_idx = self.cursor_index.min(self.text.len());
-                let (cursor_line, cursor_col) = if cursor_idx < mapping.len() {
-                    mapping[cursor_idx]
-                } else {
-                    (wrapped_lines.len().saturating_sub(1), wrapped_lines.last().map(|l| l.chars().count()).unwrap_or(0))
-                };
+                let (cursor_line, cursor_col) = self.line_col_for_index(&mapping, &wrapped_lines, cursor_idx);
                 let mut cursor_offset = 0.0;
-                let font = self.font.as_ref();
                 if cursor_line < wrapped_lines.len() {
                     let line = &wrapped_lines[cursor_line];
-                    for c in line.chars().take(cursor_col) {
-                        cursor_offset += measure_text(&c.to_string(), font, self.font_size as u16, 1.0).width;
-                    }
+                    cursor_offset = self.horizontal_offset_for_col(line, cursor_col);
                 }
                 let cursor_spacing = 2.0;
-                let y = text_y + cursor_line as f32 * (self.font_size + 2.0);
+                let y = text_y + cursor_line as f32 * line_height;
                 draw_line(
                     text_x + cursor_offset + cursor_spacing,
                     y - self.font_size * 0.7,
