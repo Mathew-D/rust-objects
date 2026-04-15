@@ -408,14 +408,15 @@ impl ListView {
         // Draw visible items
         for (i, item) in visible_items.iter().enumerate() {
             let actual_index = i + self.scroll_offset;
-            let y_pos = self.y + i as f32 * item_height;
+            // Position items to align with background start
+            let y_pos = self.y - self.font_size as f32 + self.item_padding + i as f32 * item_height;
             
             // Draw selection background if this is the selected item
             if let Some(sel_index) = self.selected_index {
                 if actual_index == sel_index && self.selection_color.is_some() {
                     draw_rectangle(
                         self.x - self.item_padding,
-                        y_pos - self.font_size as f32 + self.item_padding,
+                        y_pos,
                         width,
                         item_height,
                         self.selection_color.unwrap(),
@@ -425,13 +426,13 @@ impl ListView {
             
             // Calculate vertical centering for the text
             let text_dims = measure_text(item, None, self.font_size, 1.0);
-            let text_y_offset = (item_height - text_dims.height) / 2.0;
+            let text_baseline = y_pos + (item_height + text_dims.height) / 2.0;
             
             // Draw the item text (vertically centered)
             draw_text(
                 item, 
                 self.x, 
-                y_pos + text_y_offset, 
+                text_baseline, 
                 self.font_size as f32, 
                 self.foreground
             );
