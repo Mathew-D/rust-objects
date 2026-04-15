@@ -279,8 +279,9 @@ impl TextButton {
             self.cached_rect.contains(mouse_pos)
         };
 
-        // Draw the text button (change color on hover)
-        let button_color = if self.enabled {
+        // Draw the text button with a bit of depth so it reads as a clickable control.
+        let is_pressed = is_hovered && self.enabled && is_mouse_button_down(MouseButton::Left);
+        let mut button_color = if self.enabled {
             if is_hovered {
                 self.hover_color
             } else {
@@ -290,22 +291,89 @@ impl TextButton {
             self.off_color
         };
 
-        // Draw the button with or without rounded corners
+        // Slightly darken while pressed to mimic a physical button press.
+        if is_pressed {
+            button_color = shade_color(button_color, 0.80);
+        }
+
+        let is_background_transparent = button_color.a == 0.0;
+        let press_offset = if is_pressed { 1.0 } else { 0.0 };
+        let draw_x = self.x;
+        let draw_y = self.y + press_offset;
+
+        if !is_background_transparent {
+            // Draw a subtle shadow behind the button.
+            let shadow_color = Color::new(0.0, 0.0, 0.0, 0.20);
+            if self.corner_radius > 0.0 {
+                draw_round_rect(draw_x, draw_y + 2.0, self.width, self.height, self.corner_radius, shadow_color);
+            } else {
+                draw_rectangle(draw_x, draw_y + 2.0, self.width, self.height, shadow_color);
+            }
+        }
+
+        // Draw the button with or without rounded corners.
         if self.corner_radius > 0.0 {
-            draw_round_rect(self.x, self.y, self.width, self.height, self.corner_radius, button_color);
-            
-            // Draw rounded border if enabled
+            draw_round_rect(draw_x, draw_y, self.width, self.height, self.corner_radius, button_color);
+
+            // Add top highlight and bottom shade to create depth.
+            if !is_background_transparent {
+                let highlight = Color::new(1.0, 1.0, 1.0, if is_pressed { 0.10 } else { 0.28 });
+                let lowlight = Color::new(0.0, 0.0, 0.0, if is_pressed { 0.18 } else { 0.26 });
+                draw_round_rect_lines(
+                    draw_x + 1.0,
+                    draw_y + 1.0,
+                    self.width - 2.0,
+                    self.height - 2.0,
+                    (self.corner_radius - 1.0).max(0.0),
+                    1.0,
+                    highlight,
+                );
+                draw_round_rect_lines(
+                    draw_x,
+                    draw_y,
+                    self.width,
+                    self.height,
+                    self.corner_radius,
+                    1.0,
+                    lowlight,
+                );
+            }
+
+            // Draw rounded border if enabled.
             if self.border {
-                draw_round_rect_lines(self.x, self.y, self.width, self.height, 
-                                     self.corner_radius, self.border_thickness, self.border_color);
+                draw_round_rect_lines(
+                    draw_x,
+                    draw_y,
+                    self.width,
+                    self.height,
+                    self.corner_radius,
+                    self.border_thickness,
+                    self.border_color,
+                );
             }
         } else {
-            draw_rectangle(self.x, self.y, self.width, self.height, button_color);
-            
-            // Draw regular border if enabled
+            draw_rectangle(draw_x, draw_y, self.width, self.height, button_color);
+
+            if !is_background_transparent {
+                // Bevel effect for square buttons.
+                let top_highlight = Color::new(1.0, 1.0, 1.0, if is_pressed { 0.10 } else { 0.30 });
+                let bottom_shade = Color::new(0.0, 0.0, 0.0, if is_pressed { 0.20 } else { 0.28 });
+                draw_line(draw_x + 1.0, draw_y + 1.0, draw_x + self.width - 1.0, draw_y + 1.0, 1.0, top_highlight);
+                draw_line(draw_x + 1.0, draw_y + 1.0, draw_x + 1.0, draw_y + self.height - 1.0, 1.0, top_highlight);
+                draw_line(draw_x, draw_y + self.height, draw_x + self.width, draw_y + self.height, 1.0, bottom_shade);
+                draw_line(draw_x + self.width, draw_y, draw_x + self.width, draw_y + self.height, 1.0, bottom_shade);
+            }
+
+            // Draw regular border if enabled.
             if self.border {
-                draw_rectangle_lines(self.x, self.y, self.width, self.height, 
-                                    self.border_thickness, self.border_color);
+                draw_rectangle_lines(
+                    draw_x,
+                    draw_y,
+                    self.width,
+                    self.height,
+                    self.border_thickness,
+                    self.border_color,
+                );
             }
         }
 
@@ -326,7 +394,7 @@ impl TextButton {
                 draw_text_ex(
                     &self.text,
                     self.cached_text_position.x,
-                    self.cached_text_position.y,
+                    self.cached_text_position.y + press_offset,
                     TextParams {
                         font: Some(font),
                         font_size: self.font_size,
@@ -340,7 +408,7 @@ impl TextButton {
                 draw_text(
                     &self.text,
                     self.cached_text_position.x,
-                    self.cached_text_position.y,
+                    self.cached_text_position.y + press_offset,
                     self.font_size.into(),
                     current_text_color,
                 );
@@ -460,4 +528,13 @@ fn draw_round_rect_lines(x: f32, y: f32, w: f32, h: f32, radius: f32, thickness:
 
 fn lerp_color(c1: Color, c2: Color, factor: f32) -> Color {
     Color::new(c1.r * (1.0 - factor) + c2.r * factor, c1.g * (1.0 - factor) + c2.g * factor, c1.b * (1.0 - factor) + c2.b * factor, 1.0)
+}
+
+fn shade_color(color: Color, factor: f32) -> Color {
+    Color::new(
+        (color.r * factor).clamp(0.0, 1.0),
+        (color.g * factor).clamp(0.0, 1.0),
+        (color.b * factor).clamp(0.0, 1.0),
+        color.a,
+    )
 }
