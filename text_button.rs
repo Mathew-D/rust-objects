@@ -1,6 +1,7 @@
 /*
 Made by: Mathew Dusome
-May 5 2025
+April 15 2026
+Updated: April 16 2026 by Tristan St-Gelasis to change when button action is triggered
 To import you need:
 Adds a button object
 

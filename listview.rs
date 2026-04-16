@@ -26,6 +26,7 @@ Draw in your loop:
 === STYLING (optional, chain these methods) ===
     list_view
         .with_colors(text_color, Some(background_color), Some(selection_color))
+        .with_font(my_font.clone())      // Set custom font (optional)
         .with_spacing(1.5)              // Line spacing multiplier
         .with_padding(10.0)             // Padding around text
         .set_width(300.0);              // Fixed width (auto-calculated if not set)
@@ -52,6 +53,7 @@ This will:
     let mut list_view = ListView::new(&items, 10.0, 10.0, 20);
     list_view
         .with_colors(BLACK, Some(LIGHTGRAY), Some(BLUE))
+        .with_font(my_font.clone())
         .with_spacing(1.5)
         .with_padding(10.0)
         .with_max_visible_items(5)
@@ -92,6 +94,7 @@ pub struct ListView {
     scrollbar_color: Color,
     scrollbar_handle_color: Color,
     width_override: Option<f32>,
+    font: Option<Font>,
 }
 
 impl ListView {
@@ -115,7 +118,15 @@ impl ListView {
             scrollbar_color: Color::new(0.7, 0.7, 0.7, 0.7), // Light gray, semi-transparent
             scrollbar_handle_color: Color::new(0.5, 0.5, 0.5, 0.8), // Darker gray
             width_override: None,
+            font: None,
         }
+    }
+
+    // Method to set custom font
+    #[allow(unused)]
+    pub fn with_font(&mut self, font: Font) -> &mut Self {
+        self.font = Some(font);
+        self
     }
 
     /// Set a custom width for the ListView box
@@ -242,7 +253,7 @@ impl ListView {
 
         // Find the maximum width of any item
         let content_width = self.items.iter()
-            .map(|item| measure_text(item, None, self.font_size, 1.0).width)
+            .map(|item| measure_text(item, self.font.as_ref(), self.font_size, 1.0).width)
             .fold(0.0, f32::max);
 
         let width = match self.width_override {
@@ -425,16 +436,22 @@ impl ListView {
             }
             
             // Calculate vertical centering for the text
-            let text_dims = measure_text(item, None, self.font_size, 1.0);
+            let text_dims = measure_text(item, self.font.as_ref(), self.font_size, 1.0);
             let text_baseline = y_pos + (item_height + text_dims.height) / 2.0;
             
             // Draw the item text (vertically centered)
-            draw_text(
-                item, 
-                self.x, 
-                text_baseline, 
-                self.font_size as f32, 
-                self.foreground
+            draw_text_ex(
+                item,
+                self.x,
+                text_baseline,
+                TextParams {
+                    font: self.font.as_ref(),
+                    font_size: self.font_size,
+                    font_scale: 1.0,
+                    font_scale_aspect: 1.0,
+                    rotation: 0.0,
+                    color: self.foreground,
+                },
             );
         }
         
