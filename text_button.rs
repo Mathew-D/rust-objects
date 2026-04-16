@@ -416,7 +416,7 @@ impl TextButton {
         }
 
         // After drawing, check if the button was clicked
-        is_hovered && self.enabled && is_mouse_button_pressed(MouseButton::Left)
+        is_hovered && self.enabled && is_mouse_button_released(MouseButton::Left)
     }
 }
 
