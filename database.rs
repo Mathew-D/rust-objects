@@ -22,7 +22,7 @@ INITIAL SETUP:
    Then add these 2 new sections:
 
    [target.'cfg(target_arch = "wasm32")'.dependencies]
-   wasm-bindgen = "0.2"
+   wasm-bindgen = "=0.2.106"
    wasm-bindgen-futures = "0.4"
    js-sys = "0.3"
    web-sys = { version = "0.3", features = [
