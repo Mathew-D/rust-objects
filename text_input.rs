@@ -9,8 +9,9 @@ CLIPBOARD SUPPORT
 No WEB Support
 Ctrl+C, Ctrl+V, and Ctrl+X are implemented on windows, linux and macOS using system clipboard utilities
 (wl-copy/wl-paste for Wayland, xclip for X11, pbcopy/pbpaste for macOS, and clip/Get-Clipboard for Windows).
+Must add arboard = { version = "3.6", features = ["wayland-data-control"] } to Cargo.toml dependencies to enable clipboard support on desktop platforms.
 
-    To use Add the following to you mod.rs:
+In your mod.rs file located in the modules folder add the following to the end of the file
         pub mod text_input;
 
 Add with the other use statements
@@ -85,6 +86,7 @@ Then in the main loop you would use:
     // Update and draw the textbox in one step
     txt_input.draw();
 */
+
 #[cfg(feature = "scale")]
 use crate::modules::scale::mouse_position_world as mouse_position;
 use macroquad::prelude::*;
@@ -98,64 +100,20 @@ pub fn copy_to_clipboard(text: String) {
         return;
     }
     // =========================
-    // 🐧 LINUX (Wayland + X11)
+    // 🐧 Everythging else
     // =========================
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_arch = "wasm32"))]
     {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
+        use arboard::Clipboard;
 
-        // Try Wayland first
-        if let Ok(mut child) = Command::new("wl-copy").stdin(Stdio::piped()).spawn() {
-            if let Some(stdin) = child.stdin.as_mut() {
-                let _ = stdin.write_all(text.as_bytes());
-            }
-            return;
-        }
-
-        // Fallback to X11
-        if let Ok(mut child) = Command::new("xclip")
-            .args(["-selection", "clipboard"])
-            .stdin(Stdio::piped())
-            .spawn()
-        {
-            if let Some(stdin) = child.stdin.as_mut() {
-                let _ = stdin.write_all(text.as_bytes());
-            }
+        let clipboard = Clipboard::new();
+        if let Ok(mut clipboard) = clipboard {
+            let the_string = text;
+            clipboard.set_text(the_string).unwrap();
         }
         return;
     }
 
-    // =========================
-    // 🪟 WINDOWS
-    // =========================
-    #[cfg(target_os = "windows")]
-    {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-
-        if let Ok(mut child) = Command::new("clip").stdin(Stdio::piped()).spawn() {
-            if let Some(stdin) = child.stdin.as_mut() {
-                let _ = stdin.write_all(text.as_bytes());
-            }
-        }
-        return;
-    }
-
-    // =========================
-    // 🍎 macOS
-    // =========================
-    #[cfg(target_os = "macos")]
-    {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-
-        if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn() {
-            if let Some(stdin) = child.stdin.as_mut() {
-                let _ = stdin.write_all(text.as_bytes());
-            }
-        }
-    }
 }
 
 pub fn paste_from_clipboard() -> String {
@@ -170,61 +128,17 @@ pub fn paste_from_clipboard() -> String {
     }
 
     // =========================
-    // 🐧 LINUX
+    // Everything else
     // =========================
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_arch = "wasm32"))]
     {
-        use std::process::Command;
+       use arboard::Clipboard;
 
-        // Wayland
-        if let Ok(output) = Command::new("wl-paste").output() {
-            if output.status.success() {
-                return String::from_utf8_lossy(&output.stdout).to_string();
-            }
+        let clipboard = Clipboard::new();
+        if let Ok(mut clipboard) = clipboard {
+            return clipboard.get_text().unwrap_or_default();
         }
-
-        // X11 fallback
-        if let Ok(output) = Command::new("xclip")
-            .args(["-selection", "clipboard", "-o"])
-            .output()
-        {
-            if output.status.success() {
-                return String::from_utf8_lossy(&output.stdout).to_string();
-            }
-        }
-
         return String::new();
-    }
-
-    // =========================
-    // 🪟 WINDOWS
-    // =========================
-    #[cfg(target_os = "windows")]
-    {
-        use std::process::Command;
-
-        if let Ok(output) = Command::new("powershell")
-            .args(["-Command", "Get-Clipboard"])
-            .output()
-        {
-            return String::from_utf8_lossy(&output.stdout).to_string();
-        }
-
-        String::new()
-    }
-
-    // =========================
-    // 🍎 macOS
-    // =========================
-    #[cfg(target_os = "macos")]
-    {
-        use std::process::Command;
-
-        if let Ok(output) = Command::new("pbpaste").output() {
-            return String::from_utf8_lossy(&output.stdout).to_string();
-        }
-
-        String::new()
     }
 }
 
@@ -250,12 +164,12 @@ pub struct TextInput {
     prompt: Option<String>, // New field for prompt text
     prompt_color: Color,    // Color for the prompt text
     // Add key repeat functionality
-    key_repeat_delay: f32, // Initial delay before key starts repeating (in seconds)
-    key_repeat_rate: f32,  // How often the key repeats after initial delay (in seconds)
-    key_repeat_timer: f32, // Timer to track key repeat
+    key_repeat_delay: f32,     // Initial delay before key starts repeating (in seconds)
+    key_repeat_rate: f32,      // How often the key repeats after initial delay (in seconds)
+    key_repeat_timer: f32,     // Timer to track key repeat
     last_key: Option<KeyCode>, // Track the last key that was pressed
-    enabled: bool,         // Controls whether the text input can be interacted with
-    disabled_color: Color, // Color used when the text input is disabled
+    enabled: bool,             // Controls whether the text input can be interacted with
+    disabled_color: Color,     // Color used when the text input is disabled
     // New: Multiline and max chars support
     multiline: bool,                 // If true, wraps text to next line within box
     max_chars: Option<usize>,        // Optional maximum number of characters
@@ -266,9 +180,7 @@ pub struct TextInput {
 
 impl TextInput {
     fn is_char_allowed(&self, c: char) -> bool {
-        self.allowed_chars
-            .as_ref()
-            .map_or(true, |allowed| allowed.contains(c))
+        self.allowed_chars.as_ref().map_or(true, |allowed| allowed.contains(c))
     }
 
     fn apply_text_constraints(&self, text: &str) -> String {
@@ -281,10 +193,7 @@ impl TextInput {
                 constrained.push(c);
             }
 
-            if self
-                .max_chars
-                .is_some_and(|max| constrained.chars().count() >= max)
-            {
+            if self.max_chars.is_some_and(|max| constrained.chars().count() >= max) {
                 break;
             }
         }
@@ -301,8 +210,7 @@ impl TextInput {
             return false;
         }
 
-        self.max_chars
-            .map_or(true, |max| self.text.chars().count() < max)
+        self.max_chars.map_or(true, |max| self.text.chars().count() < max)
     }
 
     /// Returns (wrapped_lines, mapping) where mapping[byte_idx] = (line, col)
@@ -368,10 +276,7 @@ impl TextInput {
         }
         // Map the end of the text
         if byte_idx < mapping.len() {
-            mapping[byte_idx] = (
-                line_idx.saturating_sub(1),
-                lines.last().map(|l| l.chars().count()).unwrap_or(0),
-            );
+            mapping[byte_idx] = (line_idx.saturating_sub(1), lines.last().map(|l| l.chars().count()).unwrap_or(0));
         }
         (lines, mapping)
     }
@@ -399,11 +304,7 @@ impl TextInput {
             end -= 1;
         }
 
-        if start == end {
-            None
-        } else {
-            Some((start, end))
-        }
+        if start == end { None } else { Some((start, end)) }
     }
 
     fn clear_selection(&mut self) {
@@ -469,12 +370,7 @@ impl TextInput {
             .sum()
     }
 
-    fn line_col_for_index(
-        &self,
-        mapping: &[(usize, usize)],
-        wrapped_lines: &[String],
-        index: usize,
-    ) -> (usize, usize) {
+    fn line_col_for_index(&self, mapping: &[(usize, usize)], wrapped_lines: &[String], index: usize) -> (usize, usize) {
         let idx = index.min(self.text.len());
         if idx < mapping.len() {
             mapping[idx]
@@ -605,13 +501,7 @@ impl TextInput {
 
     // Add a method to change colors
     #[allow(unused)]
-    pub fn with_colors(
-        &mut self,
-        text_color: Color,
-        border_color: Color,
-        background_color: Color,
-        cursor_color: Color,
-    ) -> &mut Self {
+    pub fn with_colors(&mut self, text_color: Color, border_color: Color, background_color: Color, cursor_color: Color) -> &mut Self {
         self.text_color = text_color;
         self.border_color = border_color;
         self.background_color = background_color;
@@ -884,10 +774,7 @@ impl TextInput {
 
         if is_mouse_button_pressed(MouseButton::Left) {
             let (mx, my) = mouse_position();
-            self.active = mx >= self.x
-                && mx <= self.x + self.width
-                && my >= self.y
-                && my <= self.y + self.height;
+            self.active = mx >= self.x && mx <= self.x + self.width && my >= self.y && my <= self.y + self.height;
 
             if self.active {
                 let text_x = self.x + 5.0;
@@ -1029,8 +916,7 @@ impl TextInput {
                 if !self.delete_selection() && self.cursor_index < self.text.len() {
                     if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
                         let char_len = c.len_utf8();
-                        self.text
-                            .replace_range(self.cursor_index..self.cursor_index + char_len, "");
+                        self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
                         self.ensure_cursor_validity();
                     }
                 }
@@ -1038,9 +924,7 @@ impl TextInput {
                 self.key_repeat_timer = 0.0;
             } else if key_backspace_pressed {
                 if !self.delete_selection() && self.cursor_index > 0 {
-                    if let Some((prev_offset, _c)) =
-                        self.text[..self.cursor_index].char_indices().rev().next()
-                    {
+                    if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
                         self.text.replace_range(prev_offset..self.cursor_index, "");
                         self.cursor_index = prev_offset;
                         self.ensure_cursor_validity();
@@ -1163,8 +1047,7 @@ impl TextInput {
                         match key {
                             KeyCode::Left => {
                                 if self.cursor_index > 0 {
-                                    let shift_repeat_down = is_key_down(KeyCode::LeftShift)
-                                        || is_key_down(KeyCode::RightShift);
+                                    let shift_repeat_down = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
                                     if shift_repeat_down {
                                         if self.selection_anchor.is_none() {
                                             self.selection_anchor = Some(self.cursor_index);
@@ -1172,8 +1055,7 @@ impl TextInput {
                                     } else {
                                         self.clear_selection();
                                     }
-                                    let prev_char =
-                                        self.text[..self.cursor_index].chars().last().unwrap();
+                                    let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
                                     let char_len = prev_char.len_utf8();
                                     self.cursor_index -= char_len;
                                     self.ensure_cursor_validity();
@@ -1181,8 +1063,7 @@ impl TextInput {
                             }
                             KeyCode::Right => {
                                 if self.cursor_index < self.text.len() {
-                                    let shift_repeat_down = is_key_down(KeyCode::LeftShift)
-                                        || is_key_down(KeyCode::RightShift);
+                                    let shift_repeat_down = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
                                     if shift_repeat_down {
                                         if self.selection_anchor.is_none() {
                                             self.selection_anchor = Some(self.cursor_index);
@@ -1190,8 +1071,7 @@ impl TextInput {
                                     } else {
                                         self.clear_selection();
                                     }
-                                    let next_char =
-                                        self.text[self.cursor_index..].chars().next().unwrap();
+                                    let next_char = self.text[self.cursor_index..].chars().next().unwrap();
                                     let char_len = next_char.len_utf8();
                                     self.cursor_index += char_len;
                                     self.ensure_cursor_validity();
@@ -1199,23 +1079,16 @@ impl TextInput {
                             }
                             KeyCode::Delete => {
                                 if !self.delete_selection() && self.cursor_index < self.text.len() {
-                                    if let Some((_, c)) =
-                                        self.text[self.cursor_index..].char_indices().next()
-                                    {
+                                    if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
                                         let char_len = c.len_utf8();
-                                        self.text.replace_range(
-                                            self.cursor_index..self.cursor_index + char_len,
-                                            "",
-                                        );
+                                        self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
                                         self.ensure_cursor_validity();
                                     }
                                 }
                             }
                             KeyCode::Backspace => {
                                 if !self.delete_selection() && self.cursor_index > 0 {
-                                    if let Some((prev_offset, _c)) =
-                                        self.text[..self.cursor_index].char_indices().rev().next()
-                                    {
+                                    if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
                                         self.text.replace_range(prev_offset..self.cursor_index, "");
                                         self.cursor_index = prev_offset;
                                         self.ensure_cursor_validity();
@@ -1250,33 +1123,21 @@ impl TextInput {
 
         // Draw the background with customizable colors (or disabled color when disabled)
         if self.enabled {
-            draw_rectangle(
-                self.x,
-                self.y,
-                self.width,
-                self.height,
-                self.background_color,
-            );
+            draw_rectangle(self.x, self.y, self.width, self.height, self.background_color);
         } else {
             draw_rectangle(self.x, self.y, self.width, self.height, self.disabled_color);
         }
 
         let text_color = if self.enabled { self.text_color } else { GRAY };
-        let prompt_color = if self.enabled {
-            self.prompt_color
-        } else {
-            GRAY
-        };
+        let prompt_color = if self.enabled { self.prompt_color } else { GRAY };
 
         // Draw text selection highlight before text so glyphs remain readable.
         if self.enabled && self.active {
             if let Some((sel_start, sel_end)) = self.get_selection_range() {
                 let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
                 if !wrapped_lines.is_empty() {
-                    let (start_line, start_col) =
-                        self.line_col_for_index(&mapping, &wrapped_lines, sel_start);
-                    let (end_line, end_col) =
-                        self.line_col_for_index(&mapping, &wrapped_lines, sel_end);
+                    let (start_line, start_col) = self.line_col_for_index(&mapping, &wrapped_lines, sel_start);
+                    let (end_line, end_col) = self.line_col_for_index(&mapping, &wrapped_lines, sel_end);
                     let select_color = Color::new(0.2, 0.45, 0.95, 0.35);
 
                     for line_idx in start_line..=end_line {
@@ -1285,28 +1146,14 @@ impl TextInput {
                         }
                         let line = &wrapped_lines[line_idx];
                         let line_len = line.chars().count();
-                        let from_col = if line_idx == start_line {
-                            start_col.min(line_len)
-                        } else {
-                            0
-                        };
-                        let to_col = if line_idx == end_line {
-                            end_col.min(line_len)
-                        } else {
-                            line_len
-                        };
+                        let from_col = if line_idx == start_line { start_col.min(line_len) } else { 0 };
+                        let to_col = if line_idx == end_line { end_col.min(line_len) } else { line_len };
 
                         if to_col > from_col {
                             let start_x = text_x + self.horizontal_offset_for_col(line, from_col);
                             let end_x = text_x + self.horizontal_offset_for_col(line, to_col);
                             let y = text_y + line_idx as f32 * line_height - self.font_size * 0.8;
-                            draw_rectangle(
-                                start_x,
-                                y,
-                                end_x - start_x,
-                                self.font_size + 6.0,
-                                select_color,
-                            );
+                            draw_rectangle(start_x, y, end_x - start_x, self.font_size + 6.0, select_color);
                         }
                     }
                 }
@@ -1366,8 +1213,7 @@ impl TextInput {
                 // Use the same mapping as navigation for accurate cursor placement
                 let (wrapped_lines, mapping) = self.get_wrapped_lines_and_mapping();
                 let cursor_idx = self.cursor_index.min(self.text.len());
-                let (cursor_line, cursor_col) =
-                    self.line_col_for_index(&mapping, &wrapped_lines, cursor_idx);
+                let (cursor_line, cursor_col) = self.line_col_for_index(&mapping, &wrapped_lines, cursor_idx);
                 let mut cursor_offset = 0.0;
                 if cursor_line < wrapped_lines.len() {
                     let line = &wrapped_lines[cursor_line];
@@ -1389,19 +1235,11 @@ impl TextInput {
                     let cursor_text = &self.text[..self.cursor_index];
                     if let Some(font) = &self.font {
                         for c in cursor_text.chars() {
-                            cursor_offset += measure_text(
-                                &c.to_string(),
-                                Some(font),
-                                self.font_size as u16,
-                                1.0,
-                            )
-                            .width;
+                            cursor_offset += measure_text(&c.to_string(), Some(font), self.font_size as u16, 1.0).width;
                         }
                     } else {
                         for c in cursor_text.chars() {
-                            cursor_offset +=
-                                measure_text(&c.to_string(), None, self.font_size as u16, 1.0)
-                                    .width;
+                            cursor_offset += measure_text(&c.to_string(), None, self.font_size as u16, 1.0).width;
                         }
                     }
                 }
@@ -1417,11 +1255,7 @@ impl TextInput {
             }
         }
 
-        let border_color = if self.enabled {
-            self.border_color
-        } else {
-            GRAY
-        };
+        let border_color = if self.enabled { self.border_color } else { GRAY };
         draw_rectangle_lines(self.x, self.y, self.width, self.height, 2.0, border_color);
     }
 }
