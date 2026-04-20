@@ -9,7 +9,11 @@ CLIPBOARD SUPPORT
 No WEB Support
 Ctrl+C, Ctrl+V, and Ctrl+X are implemented on windows, linux and macOS using system clipboard utilities
 (wl-copy/wl-paste for Wayland, xclip for X11, pbcopy/pbpaste for macOS, and clip/Get-Clipboard for Windows).
-Must add arboard = { version = "3.6", features = ["wayland-data-control"] } to Cargo.toml dependencies to enable clipboard support on desktop platforms.
+Must add the following to Cargo.toml to enable clipboard support on desktop platforms:
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+arboard = { version = "3.6", features = ["wayland-data-control"] }
+
 
 In your mod.rs file located in the modules folder add the following to the end of the file
         pub mod text_input;
