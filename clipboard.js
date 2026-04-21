@@ -11,12 +11,18 @@ function register_plugin(importObject) {
 
     // ✅ REQUEST paste (async)
     importObject.env.mq_request_paste = async function() {
-        try {
-            clipboard_buffer = await navigator.clipboard.readText();
-        } catch (e) {
-            clipboard_buffer = "";
-        }
-    };
+    if (is_firefox()) {
+        console.warn("[clipboard] Paste disabled on Firefox due to input bug");
+        clipboard_buffer = "";
+        return;
+    }
+
+    try {
+        clipboard_buffer = await navigator.clipboard.readText();
+    } catch {
+        clipboard_buffer = "";
+    }
+};
 
     // ✅ LENGTH
     importObject.env.mq_get_paste_len = function() {
