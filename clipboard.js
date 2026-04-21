@@ -40,4 +40,8 @@ function register_plugin(importObject) {
 }
 // 👇 THIS is critical — expose globally
 window.register_plugin = register_plugin;
-miniquad_add_plugin({ register_plugin });
+miniquad_add_plugin({
+    name: "clipboard",
+    version: "0.1.0",
+    register_plugin
+});
