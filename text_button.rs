@@ -42,6 +42,14 @@ You can add a border to the button with:
     btn_text.with_border(RED, 2.0);
 Where the first value is the border color and the second is the thickness.
 
+Set text alignment (left, center, right)
+    btn_text.with_alignment(ui::text_button::TextAlign::Right);
+Options: TextAlign::Left, TextAlign::Center, TextAlign::Right (default is Center)
+
+Multi-line support
+Use \n in the button text to break lines:
+    btn_text.set_text("Line 1\nLine 2");
+
 To access the button's position:
     let x = btn_text.get_x();
     let y = btn_text.get_y();
@@ -63,6 +71,14 @@ Note: For buttons with transparent backgrounds (set normal_color with alpha=0),
 only the text area is clickable, not the entire button area.
 */
 use macroquad::prelude::*;
+
+// Enum for text alignment within a button
+#[allow(unused)]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
 #[cfg(feature = "scale")]
 use crate::utils::scale::mouse_position_world as mouse_position;
 
@@ -91,6 +107,9 @@ pub struct TextButton {
     cached_text_position: Vec2,
     cached_rect: Rect,
     pub visible: bool,
+
+    // Text alignment
+    pub text_align: TextAlign,
 }
 
 impl TextButton {
@@ -130,7 +149,31 @@ impl TextButton {
             cached_text_position,
             cached_rect,
             visible: true,
+            text_align: TextAlign::Center, // Default to center alignment
         }
+    }
+    /// Set the text alignment for the button
+    #[allow(unused)]
+    pub fn with_alignment(&mut self, align: TextAlign) -> &mut Self {
+        self.text_align = align;
+        self.update_text_position();
+        self
+    }
+
+    /// Update cached text position based on alignment
+    fn update_text_position(&mut self) {
+        let x = self.x;
+        let y = self.y;
+        let width = self.width;
+        let height = self.height;
+        let text_width = self.cached_text_width;
+        let text_x = match self.text_align {
+            TextAlign::Left => x + 8.0, // Padding from left
+            TextAlign::Center => x + (width / 2.0) - (text_width / 2.0),
+            TextAlign::Right => x + width - text_width - 8.0, // Padding from right
+        };
+        let text_y = y + (height / 2.0);
+        self.cached_text_position = Vec2::new(text_x, text_y);
     }
 
     // Method to set custom font - taking Font by value since it implements Clone
@@ -218,11 +261,7 @@ impl TextButton {
             None => measure_text(&self.text, None, self.font_size, 1.0).width,
         };
         
-        // Update text position
-        self.cached_text_position = Vec2::new(
-            self.x + (self.width / 2.0) - (self.cached_text_width / 2.0),
-            self.y + (self.height / 2.0),
-        );
+        self.update_text_position();
         
         self
     }
@@ -244,11 +283,7 @@ impl TextButton {
         // Update cached rectangle
         self.cached_rect = Rect::new(self.x, self.y, self.width, self.height);
         
-        // Update text position
-        self.cached_text_position = Vec2::new(
-            self.x + (self.width / 2.0) - (self.cached_text_width / 2.0),
-            self.y + (self.height / 2.0),
-        );
+        self.update_text_position();
         
         self
     }
@@ -390,29 +425,44 @@ impl TextButton {
             Color::new(self.text_color.r, self.text_color.g, self.text_color.b, 0.5)
         };
         
-        match &self.font {
-            Some(font) => {
-                draw_text_ex(
-                    &self.text,
-                    self.cached_text_position.x,
-                    self.cached_text_position.y + press_offset,
-                    TextParams {
-                        font: Some(font),
-                        font_size: self.font_size,
-                        color: current_text_color,
-                        ..Default::default()
-                    },
-                );
-            },
-            None => {
-                // Use the default draw_text function
-                draw_text(
-                    &self.text,
-                    self.cached_text_position.x,
-                    self.cached_text_position.y + press_offset,
-                    self.font_size.into(),
-                    current_text_color,
-                );
+        let lines: Vec<&str> = self.text.split('\n').collect();
+        let line_height = self.font_size as f32 * 1.2;
+        let total_height = lines.len() as f32 * line_height;
+        let start_y = self.cached_text_position.y + press_offset - (total_height / 2.0) + (line_height / 2.0);
+        for (i, line) in lines.iter().enumerate() {
+            let y = start_y + i as f32 * line_height;
+            let text_width = match &self.font {
+                Some(font) => measure_text(line, Some(font), self.font_size, 1.0).width,
+                None => measure_text(line, None, self.font_size, 1.0).width,
+            };
+            let x = match self.text_align {
+                TextAlign::Left => self.x + 8.0,
+                TextAlign::Center => self.x + (self.width / 2.0) - (text_width / 2.0),
+                TextAlign::Right => self.x + self.width - text_width - 8.0,
+            };
+            match &self.font {
+                Some(font) => {
+                    draw_text_ex(
+                        line,
+                        x,
+                        y,
+                        TextParams {
+                            font: Some(font),
+                            font_size: self.font_size,
+                            color: current_text_color,
+                            ..Default::default()
+                        },
+                    );
+                },
+                None => {
+                    draw_text(
+                        line,
+                        x,
+                        y,
+                        self.font_size.into(),
+                        current_text_color,
+                    );
+                }
             }
         }
 
