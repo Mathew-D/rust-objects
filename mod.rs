@@ -1,15 +1,12 @@
 /*
 --------------------------------------------
-modules/mod.rs
-This file lists which modules (Rust files) are part of the "modules" folder.
-
-This file just tells Rust what's available. It's like a directory of all the tools.
+This file lists which modules (Rust files) are part of the folder that follows this file's name.
+For example if this file is called ui.rs it would include all the files from the ui folder
+This file just tells Rust what's available. It's like a directory of all the tools in that folder.
 
 Example:
 pub mod grid;
 
-Once listed here, you can import from main.rs:
-use crate::modules::grid::draw_grid;
 --------------------------------------------
 */
 // Add modules below
