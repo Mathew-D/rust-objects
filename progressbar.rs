@@ -4,11 +4,11 @@ April 26 2025
 To import you need:
 Adds a progress bar component for displaying completion status
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your ui.rs file add the following to the end of the file
     pub mod progressbar;
     
 Then add the following with the use commands:
-use crate::modules::progressbar::ProgressBar;
+use crate::ui::progressbar::ProgressBar;
 
 Then to use this you would put the following above the loop: 
     // Create a basic horizontal progress bar

@@ -5,11 +5,11 @@ Updated: April 16 2026 by Tristan St-Gelasis to change when button action is tri
 To import you need:
 Adds a button object
 
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your ui.rs file add the following to the end of the file:
     pub mod text_button;
 
 Then with the other use commands add:
-use crate::modules::text_button::TextButton;
+use crate::ui::text_button::TextButton;
 
 Then add the following to the top of your file:
 
@@ -64,7 +64,7 @@ only the text area is clickable, not the entire button area.
 */
 use macroquad::prelude::*;
 #[cfg(feature = "scale")]
-use crate::modules::scale::mouse_position_world as mouse_position;
+use crate::utils::scale::mouse_position_world as mouse_position;
 
 // Custom struct for ButtonText
 pub struct TextButton {

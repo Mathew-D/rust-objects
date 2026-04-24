@@ -13,11 +13,11 @@ native = ["rayon"]    # The "native" feature enables Rayon
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = "1.7"  # Rayon is only included for native builds
 
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your utils.rs file add the following to the end of the file:
     pub mod collision;
 Then in with the other use command add:
 
-use crate::modules::collision::check_collision;
+use crate::utils::collision::check_collision;
  
 Then in the loop you would use the follow to check if two images hit: 
 let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pixels to skip

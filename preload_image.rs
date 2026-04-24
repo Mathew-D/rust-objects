@@ -4,12 +4,12 @@ Date: 2025-05-10
 Program Details: Central texture manager for preloading and sharing textures with loading screen support
 
 To use this:
-1. In your mod.rs file located in the modules folder add the following to the end of the file:
+1. In your utils.rs file add the following to the end of the file:
     pub mod preload_image;
     
 2. Add the following use commands:
-    use crate::modules::preload_image::TextureManager;
-    use crate::modules::preload_image::LoadingScreenOptions; // If you want to customize the loading screen
+    use crate::utils::preload_image::TextureManager;
+    use crate::utils::preload_image::LoadingScreenOptions; // If you want to customize the loading screen
 
 3. Create and initialize a TextureManager:
     let tm = TextureManager::new();
@@ -96,7 +96,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use macroquad::prelude::*;
 use macroquad::experimental::coroutines::start_coroutine;
-use crate::modules::still_image::set_texture_main;
+use crate::ui::still_image::set_texture_main;
 
 /// Options for customizing the loading screen appearance
 pub struct LoadingScreenOptions {

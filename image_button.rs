@@ -4,11 +4,11 @@ Feb 6 2025
 Program Details: Adds a button object with image support
 
 To import you need:
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your ui.rs file add the following to the end of the file:
     pub mod image_button;
 
 Then add the following with the use commands:
-    use crate::modules::image_button::ImageButton;
+    use crate::ui::image_button::ImageButton;
 
 Usage examples:
 1. Create an image button:
@@ -45,7 +45,7 @@ Usage examples:
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
 #[cfg(feature = "scale")]
-use crate::modules::scale::mouse_position_world as mouse_position;
+use crate::utils::scale::mouse_position_world as mouse_position;
 
 pub struct ImageButton {
     pub x: f32,

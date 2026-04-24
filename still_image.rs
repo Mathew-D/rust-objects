@@ -5,11 +5,11 @@ Program Details: Image module for displaying and manipulating images
 
 To import you need:
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your ui.rs file add the following to the end of the file
     pub mod still_image;
     
 Then add the following with the use commands:
-use crate::modules::still_image::StillImage;
+use crate::ui::still_image::StillImage;
 
 Usage examples:
 1. Create a new image object:

@@ -3,14 +3,14 @@ Made by: Mathew Dusome
 May 16, 2025
 Adds a message box (dialog) component for displaying messages and options to users
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your ui.rs file add the following to the end of the file
     pub mod messagebox;
     
 For info boxs add the following with the use commands:
-use crate::modules::messagebox::MessageBox;
+use crate::ui::messagebox::MessageBox;
 
 or for comfirmation boxes use:
-use crate::modules::messagebox::{MessageBox, MessageBoxResult};
+use crate::ui::messagebox::{MessageBox, MessageBoxResult};
 
 QUICK EXAMPLES:
 
@@ -153,7 +153,7 @@ IMPORTANT NOTES:
 
 use macroquad::prelude::*;
 #[cfg(feature = "scale")]
-use crate::modules::scale::mouse_position_world as mouse_position;
+use crate::utils::scale::mouse_position_world as mouse_position;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MessageBoxResult {

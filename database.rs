@@ -21,27 +21,13 @@ INITIAL SETUP:
 
    Then add these 2 new sections:
 
-   [target.'cfg(target_arch = "wasm32")'.dependencies]
-   wasm-bindgen = "=0.2.106"
-   wasm-bindgen-futures = "0.4"
-   js-sys = "0.3"
-   web-sys = { version = "0.3", features = [
-       "Window",
-       "Request",
-       "RequestInit",
-       "RequestMode",
-       "Headers",
-       "Response",
-   ] }
-
    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
    ureq = { version = "2.9", features = ["json"] }
+   
 8. Add use statement:
-    use crate::modules::database::{create_database_client, DatabaseTable};
-9. Add to mod.rs:
+    use crate::utils::database::{create_database_client, DatabaseTable};
+9. Add to utils.rs:
     pub mod database;
-10. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
-   This will compile to WebAssembly with the wasm32 dependencies above.
 
 ================================
 CUSTOMIZE YOUR DATABASE SCHEMA:
@@ -160,8 +146,9 @@ fn is_zero(num: &i32) -> bool {
     *num == 0
 }
 // Please replace the libsql:// from the URL with https:
-pub const TURSO_URL: &str = "URL_HERE";
+pub const TURSO_URL: &str = "https://ADDRESS_HERE";
 pub const TURSO_AUTH_TOKEN: &str = "TOKEN_HERE";
+
 
 // ============================================================================
 // CUSTOMIZE THIS STRUCT FOR YOUR DATABASE SCHEMA
@@ -209,7 +196,6 @@ pub fn create_turso_client(url: &str, token: &str) -> DatabaseClient {
 
 /// Create a table with custom name and schema
 /// The table name and columns are fully customizable
-/// Update this function if you want to change the table structure
 /// 
 /// Example for different schemas:
 /// ```
@@ -577,45 +563,63 @@ impl DatabaseClient {
         }
     }
 
-    #[allow(unused)]
     #[cfg(target_arch = "wasm32")]
     async fn execute_query_web(&self, json_body: &str) -> Result<String, Box<dyn std::error::Error>> {
-        use wasm_bindgen::JsCast;
-        use wasm_bindgen_futures::JsFuture;
-        use web_sys::{Headers, Request, RequestInit, RequestMode, Response, window};
-
-        let url = format!("{}/v2/pipeline", self.base_url);
-        let opts = RequestInit::new();
-        opts.set_method("POST");
-        opts.set_mode(RequestMode::Cors);
-        opts.set_body(&wasm_bindgen::JsValue::from_str(json_body));
-
-        let headers = Headers::new().map_err(|e| format!("Failed to create headers: {:?}", e))?;
-        headers
-            .append("Authorization", &format!("Bearer {}", self.auth_token))
-            .map_err(|e| format!("Failed to set Authorization: {:?}", e))?;
-        headers
-            .append("Content-Type", "application/json")
-            .map_err(|e| format!("Failed to set Content-Type: {:?}", e))?;
-        opts.set_headers(&headers);
-
-        let req = Request::new_with_str_and_init(&url, &opts).map_err(|e| format!("Failed to build request: {:?}", e))?;
-        let win = window().ok_or("Failed to get window")?;
-        let resp_value = JsFuture::from(win.fetch_with_request(&req))
-            .await
-            .map_err(|e| format!("Fetch failed: {:?}", e))?;
-        let resp: Response = resp_value.dyn_into().map_err(|e| format!("Failed to cast response: {:?}", e))?;
-
-        if !resp.ok() {
-            return Err(format!("HTTP error: {}", resp.status()).into());
+        // No extra std imports needed for this FFI pattern
+        use macroquad::prelude::next_frame;
+        extern "C" {
+            // JS async: mq_db_query(ptr, len, url_ptr, url_len, token_ptr, token_len)
+            fn mq_db_query(ptr: *const u8, len: usize, url_ptr: *const u8, url_len: usize, token_ptr: *const u8, token_len: usize);
+            fn mq_db_query_result_len() -> usize;
+            fn mq_db_query_fill_result(ptr: *mut u8);
+            fn mq_db_query_clear_result();
         }
 
-        let text_promise = resp.text().map_err(|e| format!("resp.text() failed: {:?}", e))?;
+        // Prepare buffers
+        let json_bytes = json_body.as_bytes();
+        let url_bytes = self.base_url.as_bytes();
+        let token_bytes = self.auth_token.as_bytes();
 
-        let text_value = JsFuture::from(text_promise).await.map_err(|e| format!("Failed to read text: {:?}", e))?;
-        text_value.as_string().ok_or("Failed to convert to string".into())
+        // Call JS (async, but we must poll for result)
+        unsafe {
+            mq_db_query(
+                json_bytes.as_ptr(),
+                json_bytes.len(),
+                url_bytes.as_ptr(),
+                url_bytes.len(),
+                token_bytes.as_ptr(),
+                token_bytes.len(),
+            );
+        }
+
+        // Poll for result (naive busy-wait, no async yield)
+        let mut tries = 0;
+        let max_tries = 100; // Increase for slow JS
+        let mut result_len = 0;
+        while tries < max_tries {
+            result_len = unsafe { mq_db_query_result_len() };
+            if result_len > 0 {
+                break;
+            }
+            // No yield, just busy-wait
+            tries += 1;
+            next_frame().await;
+        }
+        if result_len == 0 {
+            return Err("No result from JS db_query (timeout or JS error)".into());
+        }
+
+        // Read result
+        let mut buf = vec![0u8; result_len];
+        unsafe {
+            mq_db_query_fill_result(buf.as_mut_ptr());
+            mq_db_query_clear_result();
+        }
+        match String::from_utf8(buf) {
+            Ok(result) => Ok(result),
+            Err(e) => Err(format!("UTF-8 conversion error in WASM db_query: {}", e).into()),
+        }
     }
-
     #[allow(unused)]
     #[cfg(not(target_arch = "wasm32"))]
     async fn execute_query_native(&self, json_body: &str) -> Result<String, Box<dyn std::error::Error>> {

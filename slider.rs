@@ -4,11 +4,11 @@ April 26 2025
 To import you need:
 Adds a slider UI component for numeric input
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your ui.rs file add the following to the end of the file
     pub mod slider;
     
 Then add the following with the use commands:
-use crate::modules::slider::Slider;
+use crate::ui::slider::Slider;
 
 Then to use this you would put the following above the loop: 
     // Create a basic slider (horizontal by default)
@@ -52,7 +52,7 @@ Then inside the loop you would use:
 
 use macroquad::prelude::*;
 #[cfg(feature = "scale")]
-use crate::modules::scale::mouse_position_world as mouse_position;
+use crate::modules::utils::mouse_position_world as mouse_position;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum SliderOrientation {
