@@ -38,21 +38,28 @@ This is used with my VS Code extension:
   
   Features include play/pause/stop controls, frame navigation, looping options, and full collision detection support. Works on both web and native platforms.
 - **Grid** (`grid.rs`): Utility for drawing coordinate grids across the screen, useful for positioning elements during development.
+
+### Utilities
+- **Scale** (`scale.rs`): Provides functions and helpers for scaling UI elements and graphics to fit different screen sizes and resolutions. Useful for responsive layouts and adapting to various device displays.
 - **TextureManager** (`image_preload.rs`): Central texture manager for preloading and sharing textures. Reduces memory usage and prevents flickering when switching images. Provides methods for loading images individually or in batches and accessing them by path or index.
 
 ### Collision
 - **Collision** (`collision.rs`): Advanced pixel-perfect collision detection between image objects. Optimized versions for both web (WASM) and native platforms.
 
 ### Data Management
-- **TextFile** (`textfiles.rs`): Cross-platform file I/O utility that works on both web and native platforms. Provides methods for saving and loading text files, numbers, and strings with a unified API. For web platforms, data is stored in localStorage.
-- **Database** (`database.rs`): Cloud database connectivity with support for multiple providers (Supabase, Firebase, MongoDB, Neon PostgreSQL). 
-Currently a W.I.P 
-Features include:
-  - Cross-platform support (works in both native and web apps)
-  - Table creation and management
-  - CRUD operations (Create, Read, Update, Delete)
-  - Flexible querying with conditions
-  - Automatic handling of provider-specific API differences
+**TextFile** (`textfiles.rs`):
+  - Cross-platform file I/O utility for saving and loading text files, numbers, and strings.
+  - Unified async API for both native and web (WASM) platforms.
+  - On desktop: saves files with the exact filename you provide (e.g., `player_names.txt`).
+  - On web: uses browser's localStorage for persistence; asset loading requires files in the `assets` directory.
+  - Example usage and error handling are provided in the file header.
+
+**Database** (`database.rs`):
+  - Turso (libSQL) database connectivity only (other providers removed).
+  - Works on both native and web (WASM) platforms with the same API—no extra dependencies or imports required for WASM.
+  - Table creation, management, and full CRUD operations (Create, Read, Update, Delete).
+  - Flexible querying, including fetch by ID and custom SQL queries.
+  - Usage examples and schema customization instructions are provided in the file header.
 
 ## Usage
 
@@ -67,7 +74,8 @@ See individual file headers for specific usage examples.
 
 ## Feature Dependencies
 
-Some components require additional crates to enable full functionality:
+
+Some components require additional crates to enable full functionality. Make sure to add the following to your `Cargo.toml` as needed:
 
 - **AnimatedImage GIF Support**: Add the following to your Cargo.toml in the dependencies section:
   ```toml
@@ -89,20 +97,13 @@ Some components require additional crates to enable full functionality:
   rayon = "1.7"  # Rayon is only included for native builds
   ```
 
-- **TextFile Web Support**: Add the following to your Cargo.toml:
-  ```toml
-  [target.'cfg(target_arch = "wasm32")'.dependencies]
-  quad-storage = "0.1.3"
-  ```
 
-- **Database Connectivity**: Add the following to your Cargo.toml:
+- **TextFile**: No extra dependencies are required for any platform. All file and localStorage support is built-in.
+
+- **Database Connectivity (Turso only)**: Add the following to your `Cargo.toml`:
   ```toml
   [dependencies]
   serde = { version = "1.0", features = ["derive"] }
   serde_json = "1.0"
   reqwest = { version = "0.11", features = ["json"] }
-
-  [target.'cfg(target_arch = "wasm32")'.dependencies]
-  reqwest = { version = "0.11", features = ["json", "wasm-client"] }
-  wasm-bindgen-futures = "0.4"
   ```
