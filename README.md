@@ -7,8 +7,8 @@ This is used with my VS Code extension:
 ## Components
 
 ### Buttons
-- **ImageButton** (`img_button.rs`): Creates customizable image-based buttons with hover effects. Supports transparency detection for pixel-perfect clicking.
-- **TextButton** (`txt_button.rs`): Creates text-based buttons with customizable colors, hover effects, and enabled/disabled states.
+- **ImageButton** (`image_button.rs`): Creates customizable image-based buttons with hover effects. Supports transparency detection for pixel-perfect clicking.
+- **TextButton** (`text_button.rs`): Creates text-based buttons with customizable colors, hover effects, and enabled/disabled states.
 
 ### UI Elements
 - **Label** (`label.rs`): A text display component with support for multiline text, customizable colors, and optional background.
@@ -105,5 +105,8 @@ Some components require additional crates to enable full functionality. Make sur
   [dependencies]
   serde = { version = "1.0", features = ["derive"] }
   serde_json = "1.0"
-  reqwest = { version = "0.11", features = ["json"] }
+  
+  
+  [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+  ureq = { version = "2.9", features = ["json"] }
   ```
