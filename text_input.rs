@@ -92,8 +92,16 @@ Then in the main loop you would use:
 */
 
 #[cfg(feature = "scale")]
-use crate::modules::scale::mouse_position_world as mouse_position;
+use crate::utils::scale::mouse_position_world as mouse_position;
 use macroquad::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+unsafe extern "C" {
+    pub fn mq_request_paste();
+    pub fn mq_get_paste_len() -> usize;
+    pub fn mq_fill_paste_buffer(ptr: *mut u8);
+    pub fn mq_clear_paste();
+}
 
 pub fn copy_to_clipboard(text: String) {
     // =========================
@@ -101,6 +109,7 @@ pub fn copy_to_clipboard(text: String) {
     // =========================)
     #[cfg(target_arch = "wasm32")]
     {
+    
         return;
     }
     // =========================
@@ -117,7 +126,6 @@ pub fn copy_to_clipboard(text: String) {
         }
         return;
     }
-
 }
 
 pub fn paste_from_clipboard() -> String {
@@ -126,8 +134,7 @@ pub fn paste_from_clipboard() -> String {
     // =========================)
     #[cfg(target_arch = "wasm32")]
     {
-        // For web, call JavaScript pasteText function
-        // eval("pasteText();");
+      
         return String::new();
     }
 
@@ -136,7 +143,7 @@ pub fn paste_from_clipboard() -> String {
     // =========================
     #[cfg(not(target_arch = "wasm32"))]
     {
-       use arboard::Clipboard;
+        use arboard::Clipboard;
 
         let clipboard = Clipboard::new();
         if let Ok(mut clipboard) = clipboard {
@@ -149,6 +156,8 @@ pub fn paste_from_clipboard() -> String {
 pub struct TextInput {
     // For vertical navigation, store the preferred column
     preferred_col: Option<usize>,
+    #[cfg(target_arch = "wasm32")]
+    paste_requested: bool,
     // Make all fields private for complete encapsulation
     x: f32,
     y: f32,
@@ -285,14 +294,26 @@ impl TextInput {
         (lines, mapping)
     }
 
-    /// Ensure the cursor index is always at a valid UTF-8 boundary and in bounds
-    fn ensure_cursor_validity(&mut self) {
+    /// Ensure the cursor index and selection anchor are always at a valid UTF-8 boundary and in bounds
+    fn ensure_indices_validity(&mut self) {
+        // Ensure cursor_index is valid
         if self.cursor_index > self.text.len() {
             self.cursor_index = self.text.len();
         }
         // Clamp to char boundary
         while self.cursor_index > 0 && !self.text.is_char_boundary(self.cursor_index) {
             self.cursor_index -= 1;
+        }
+
+        // Ensure selection_anchor is valid if it exists
+        if let Some(ref mut anchor) = self.selection_anchor {
+            if *anchor > self.text.len() {
+                *anchor = self.text.len();
+            }
+            // Clamp to char boundary
+            while *anchor > 0 && !self.text.is_char_boundary(*anchor) {
+                *anchor -= 1;
+            }
         }
     }
 
@@ -319,7 +340,7 @@ impl TextInput {
         if let Some((start, end)) = self.get_selection_range() {
             self.text.replace_range(start..end, "");
             self.cursor_index = start;
-            self.ensure_cursor_validity();
+            self.ensure_indices_validity();
             self.clear_selection();
             return true;
         }
@@ -389,6 +410,8 @@ impl TextInput {
     pub fn new(x: f32, y: f32, width: f32, height: f32, font_size: f32) -> Self {
         Self {
             preferred_col: None,
+            #[cfg(target_arch = "wasm32")]
+            paste_requested: false,
             x,
             y,
             width,
@@ -530,7 +553,7 @@ impl TextInput {
     #[allow(unused)]
     pub fn set_text<T: Into<String>>(&mut self, text: T) -> &mut Self {
         self.text = self.apply_text_constraints(&text.into());
-        self.ensure_cursor_validity();
+        self.ensure_indices_validity();
         self.clear_selection();
         self
     }
@@ -730,7 +753,7 @@ impl TextInput {
     pub fn set_allowed_chars<T: Into<String>>(&mut self, allowed_chars: T) -> &mut Self {
         self.allowed_chars = Some(allowed_chars.into());
         self.text = self.apply_text_constraints(&self.text);
-        self.ensure_cursor_validity();
+        self.ensure_indices_validity();
         self
     }
 
@@ -785,7 +808,7 @@ impl TextInput {
                 let text_y = self.y + 5.0;
                 let new_cursor = self.index_from_local_point(mx - text_x, my - text_y);
                 self.cursor_index = new_cursor;
-                self.ensure_cursor_validity();
+                self.ensure_indices_validity();
                 self.selection_anchor = Some(self.cursor_index);
                 self.is_dragging_selection = true;
                 self.cursor_visible = true;
@@ -801,7 +824,7 @@ impl TextInput {
             let text_x = self.x + 5.0;
             let text_y = self.y + 5.0;
             self.cursor_index = self.index_from_local_point(mx - text_x, my - text_y);
-            self.ensure_cursor_validity();
+            self.ensure_indices_validity();
             self.cursor_visible = true;
             self.cursor_timer = 0.0;
         }
@@ -825,7 +848,7 @@ impl TextInput {
                 if is_key_pressed(KeyCode::A) {
                     self.selection_anchor = Some(0);
                     self.cursor_index = self.text.len();
-                    self.ensure_cursor_validity();
+                    self.ensure_indices_validity();
                     consumed_shortcut = true;
                 } else if is_key_pressed(KeyCode::C) {
                     // Copy to clipboard
@@ -857,18 +880,26 @@ impl TextInput {
                     }
                     consumed_shortcut = true;
                 } else if is_key_pressed(KeyCode::V) {
-                    // Paste from clipboard
-                    let clipboard_text = paste_from_clipboard();
-                    self.delete_selection();
-                    for c in clipboard_text.chars() {
-                        if self.can_insert_char(c) {
-                            self.text.insert(self.cursor_index, c);
-                            self.cursor_index += c.len_utf8();
-                        }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let _clipboard_text = paste_from_clipboard();
+                        self.paste_requested = true;
+                        consumed_shortcut = true;
                     }
-                    self.ensure_cursor_validity();
-                    self.clear_selection();
-                    consumed_shortcut = true;
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let clipboard_text = paste_from_clipboard();
+                        self.delete_selection();
+                        for c in clipboard_text.chars() {
+                            if self.can_insert_char(c) {
+                                self.text.insert(self.cursor_index, c);
+                                self.cursor_index += c.len_utf8();
+                            }
+                        }
+                        self.ensure_indices_validity();
+                        self.clear_selection();
+                        consumed_shortcut = true;
+                    }
                 }
             }
 
@@ -890,7 +921,7 @@ impl TextInput {
                     if !c.is_control() && self.can_insert_char(c) {
                         self.text.insert(self.cursor_index, c);
                         self.cursor_index += c.len_utf8();
-                        self.ensure_cursor_validity();
+                        self.ensure_indices_validity();
                         self.clear_selection();
                     }
                 }
@@ -902,7 +933,7 @@ impl TextInput {
             if self.multiline && is_key_pressed(KeyCode::Enter) && self.can_insert_char('\n') {
                 self.text.insert(self.cursor_index, '\n');
                 self.cursor_index += 1;
-                self.ensure_cursor_validity();
+                self.ensure_indices_validity();
                 self.clear_selection();
             }
 
@@ -921,7 +952,7 @@ impl TextInput {
                     if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
                         let char_len = c.len_utf8();
                         self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
-                        self.ensure_cursor_validity();
+                        self.ensure_indices_validity();
                     }
                 }
                 self.last_key = Some(KeyCode::Delete);
@@ -931,7 +962,7 @@ impl TextInput {
                     if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
                         self.text.replace_range(prev_offset..self.cursor_index, "");
                         self.cursor_index = prev_offset;
-                        self.ensure_cursor_validity();
+                        self.ensure_indices_validity();
                     }
                 }
                 self.last_key = Some(KeyCode::Backspace);
@@ -945,7 +976,7 @@ impl TextInput {
                 } else if let Some((start, _end)) = self.get_selection_range() {
                     self.cursor_index = start;
                     self.clear_selection();
-                    self.ensure_cursor_validity();
+                    self.ensure_indices_validity();
                     collapse_only = true;
                     self.last_key = Some(KeyCode::Left);
                     self.key_repeat_timer = 0.0;
@@ -957,7 +988,7 @@ impl TextInput {
                     let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
                     let char_len = prev_char.len_utf8();
                     self.cursor_index -= char_len;
-                    self.ensure_cursor_validity();
+                    self.ensure_indices_validity();
                     self.last_key = Some(KeyCode::Left);
                     self.key_repeat_timer = 0.0;
                     self.preferred_col = None;
@@ -971,7 +1002,7 @@ impl TextInput {
                 } else if let Some((_start, end)) = self.get_selection_range() {
                     self.cursor_index = end;
                     self.clear_selection();
-                    self.ensure_cursor_validity();
+                    self.ensure_indices_validity();
                     collapse_only = true;
                     self.last_key = Some(KeyCode::Right);
                     self.key_repeat_timer = 0.0;
@@ -983,7 +1014,7 @@ impl TextInput {
                     let next_char = self.text[self.cursor_index..].chars().next().unwrap();
                     let char_len = next_char.len_utf8();
                     self.cursor_index += char_len;
-                    self.ensure_cursor_validity();
+                    self.ensure_indices_validity();
                     self.last_key = Some(KeyCode::Right);
                     self.key_repeat_timer = 0.0;
                     self.preferred_col = None;
@@ -1030,10 +1061,10 @@ impl TextInput {
                     }
                     if let Some(byte_idx) = last_match {
                         self.cursor_index = byte_idx;
-                        self.ensure_cursor_validity();
+                        self.ensure_indices_validity();
                     } else {
                         self.cursor_index = self.text.len();
-                        self.ensure_cursor_validity();
+                        self.ensure_indices_validity();
                     }
                 }
                 // Reset preferred_col if left/right or typing
@@ -1062,7 +1093,7 @@ impl TextInput {
                                     let prev_char = self.text[..self.cursor_index].chars().last().unwrap();
                                     let char_len = prev_char.len_utf8();
                                     self.cursor_index -= char_len;
-                                    self.ensure_cursor_validity();
+                                    self.ensure_indices_validity();
                                 }
                             }
                             KeyCode::Right => {
@@ -1078,7 +1109,7 @@ impl TextInput {
                                     let next_char = self.text[self.cursor_index..].chars().next().unwrap();
                                     let char_len = next_char.len_utf8();
                                     self.cursor_index += char_len;
-                                    self.ensure_cursor_validity();
+                                    self.ensure_indices_validity();
                                 }
                             }
                             KeyCode::Delete => {
@@ -1086,7 +1117,7 @@ impl TextInput {
                                     if let Some((_, c)) = self.text[self.cursor_index..].char_indices().next() {
                                         let char_len = c.len_utf8();
                                         self.text.replace_range(self.cursor_index..self.cursor_index + char_len, "");
-                                        self.ensure_cursor_validity();
+                                        self.ensure_indices_validity();
                                     }
                                 }
                             }
@@ -1095,7 +1126,7 @@ impl TextInput {
                                     if let Some((prev_offset, _c)) = self.text[..self.cursor_index].char_indices().rev().next() {
                                         self.text.replace_range(prev_offset..self.cursor_index, "");
                                         self.cursor_index = prev_offset;
-                                        self.ensure_cursor_validity();
+                                        self.ensure_indices_validity();
                                     }
                                 }
                             }
@@ -1115,6 +1146,35 @@ impl TextInput {
             }
         } else {
             self.cursor_visible = false;
+        }
+        self.paste_wasm32();
+    }
+
+    // WASM async paste polling
+    fn paste_wasm32(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            if self.paste_requested {
+                unsafe {
+                    let len = mq_get_paste_len();
+                    if len > 0 {
+                        let mut buffer = vec![0u8; len];
+                        mq_fill_paste_buffer(buffer.as_mut_ptr());
+                        mq_clear_paste();
+                        let text = String::from_utf8_lossy(&buffer).to_string();
+                        self.delete_selection();
+                        for c in text.chars() {
+                            if self.can_insert_char(c) {
+                                self.text.insert(self.cursor_index, c);
+                                self.cursor_index += c.len_utf8();
+                            }
+                        }
+                        self.ensure_indices_validity();
+                        self.clear_selection();
+                        self.paste_requested = false;
+                    }
+                }
+            }
         }
     }
 
