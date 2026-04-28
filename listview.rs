@@ -31,6 +31,13 @@ Draw in your loop:
         .with_padding(10.0)             // Padding around text
         .set_width(300.0);              // Fixed width (auto-calculated if not set)
 
+
+=== BORDER EXAMPLE ===
+To add a border to the ListView:
+    list_view.with_border(RED, 2.0);
+Where the first value is the border color and the second is the thickness.
+    
+
 === SCROLLING ===
 Enable scrolling by limiting visible items:
     list_view.with_max_visible_items(5);
@@ -58,7 +65,7 @@ This will:
         .with_padding(10.0)
         .with_max_visible_items(5)
         .set_width(300.0);
-    
+
     loop {
         // Add items dynamically
         if some_condition {
@@ -74,7 +81,7 @@ This will:
 
 use macroquad::prelude::*;
 #[cfg(feature = "scale")]
-use crate::modules::scale::mouse_position_world as mouse_position;
+use crate::utils::scale::mouse_position_world as mouse_position;
 
 pub struct ListView {
     items: Vec<String>,
@@ -95,6 +102,10 @@ pub struct ListView {
     scrollbar_handle_color: Color,
     width_override: Option<f32>,
     font: Option<Font>,
+    // Border properties
+    border: bool,
+    border_color: Color,
+    border_thickness: f32,
 }
 
 impl ListView {
@@ -119,7 +130,18 @@ impl ListView {
             scrollbar_handle_color: Color::new(0.5, 0.5, 0.5, 0.8), // Darker gray
             width_override: None,
             font: None,
+            border: false, // Default to no border
+            border_color: BLACK, // Default border color
+            border_thickness: 1.0, // Default border thickness
         }
+    }
+    /// Add a border with custom color and thickness
+    #[allow(unused)]
+    pub fn with_border(&mut self, color: Color, thickness: f32) -> &mut Self {
+        self.border = true;
+        self.border_color = color;
+        self.border_thickness = thickness;
+        self
     }
 
     // Method to set custom font
@@ -404,6 +426,18 @@ impl ListView {
                 total_width,
                 height,
                 bg,
+            );
+        }
+
+        // Draw border if enabled
+        if self.border {
+            draw_rectangle_lines(
+                self.x - self.item_padding - self.border_thickness / 2.0,
+                self.y - self.font_size as f32 + self.item_padding - self.border_thickness / 2.0,
+                total_width + self.border_thickness,
+                height + self.border_thickness,
+                self.border_thickness,
+                self.border_color,
             );
         }
         
