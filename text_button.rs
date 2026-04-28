@@ -1,9 +1,10 @@
 /*
 Made by: Mathew Dusome
-April 15 2026
-Updated: April 16 2026 by Tristan St-Gelasis to change when button action is triggered
+May 5 2025
 To import you need:
 Adds a button object
+
+April 28, 2026: Ark1800 added enabling without removing from view and changing every color in one func
 
 In your mod.rs file located in the modules folder add the following to the end of the file:
     pub mod text_button;
@@ -42,14 +43,6 @@ You can add a border to the button with:
     btn_text.with_border(RED, 2.0);
 Where the first value is the border color and the second is the thickness.
 
-Set text alignment (left, center, right)
-    btn_text.with_alignment(ui::text_button::TextAlign::Right);
-Options: TextAlign::Left, TextAlign::Center, TextAlign::Right (default is Center)
-
-Multi-line support
-Use \n in the button text to break lines:
-    btn_text.set_text("Line 1\nLine 2");
-
 To access the button's position:
     let x = btn_text.get_x();
     let y = btn_text.get_y();
@@ -71,16 +64,8 @@ Note: For buttons with transparent backgrounds (set normal_color with alpha=0),
 only the text area is clickable, not the entire button area.
 */
 use macroquad::prelude::*;
-
-// Enum for text alignment within a button
-#[allow(unused)]
-pub enum TextAlign {
-    Left,
-    Center,
-    Right,
-}
 #[cfg(feature = "scale")]
-use crate::utils::scale::mouse_position_world as mouse_position;
+use crate::modules::scale::mouse_position_world as mouse_position;
 
 // Custom struct for ButtonText
 pub struct TextButton {
@@ -107,9 +92,7 @@ pub struct TextButton {
     cached_text_position: Vec2,
     cached_rect: Rect,
     pub visible: bool,
-
-    // Text alignment
-    pub text_align: TextAlign,
+    pub button_enabled: bool, // New field to control button interactivity without hiding it
 }
 
 impl TextButton {
@@ -149,31 +132,20 @@ impl TextButton {
             cached_text_position,
             cached_rect,
             visible: true,
-            text_align: TextAlign::Center, // Default to center alignment
+            button_enabled: true,
         }
     }
-    /// Set the text alignment for the button
-    #[allow(unused)]
-    pub fn with_alignment(&mut self, align: TextAlign) -> &mut Self {
-        self.text_align = align;
-        self.update_text_position();
-        self
+
+    //ANDREWS FUNCTIONS :)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.button_enabled = enabled;
     }
 
-    /// Update cached text position based on alignment
-    fn update_text_position(&mut self) {
-        let x = self.x;
-        let y = self.y;
-        let width = self.width;
-        let height = self.height;
-        let text_width = self.cached_text_width;
-        let text_x = match self.text_align {
-            TextAlign::Left => x + 8.0, // Padding from left
-            TextAlign::Center => x + (width / 2.0) - (text_width / 2.0),
-            TextAlign::Right => x + width - text_width - 8.0, // Padding from right
-        };
-        let text_y = y + (height / 2.0);
-        self.cached_text_position = Vec2::new(text_x, text_y);
+    pub fn set_all_colors (&mut self, normal_color: Color, hover_color: Color, text_color: Color, hovertext_color: Color) {
+        self.normal_color = normal_color;
+        self.hover_color = hover_color;
+        self.text_color = text_color;
+        self.hover_text_color = hovertext_color;
     }
 
     // Method to set custom font - taking Font by value since it implements Clone
@@ -261,7 +233,11 @@ impl TextButton {
             None => measure_text(&self.text, None, self.font_size, 1.0).width,
         };
         
-        self.update_text_position();
+        // Update text position
+        self.cached_text_position = Vec2::new(
+            self.x + (self.width / 2.0) - (self.cached_text_width / 2.0),
+            self.y + (self.height / 2.0),
+        );
         
         self
     }
@@ -283,14 +259,18 @@ impl TextButton {
         // Update cached rectangle
         self.cached_rect = Rect::new(self.x, self.y, self.width, self.height);
         
-        self.update_text_position();
+        // Update text position
+        self.cached_text_position = Vec2::new(
+            self.x + (self.width / 2.0) - (self.cached_text_width / 2.0),
+            self.y + (self.height / 2.0),
+        );
         
         self
     }
 
     pub fn click(&self) -> bool {
         if !self.visible {
-            return false; // If not visible, don't process clicks
+            return false; // If not visible, don't draw or process clicks
         }
         // Get mouse position
         let (mouse_x, mouse_y) = mouse_position();
@@ -315,9 +295,8 @@ impl TextButton {
             self.cached_rect.contains(mouse_pos)
         };
 
-        // Draw the text button with a bit of depth so it reads as a clickable control.
-        let is_pressed = is_hovered && self.enabled && is_mouse_button_down(MouseButton::Left);
-        let mut button_color = if self.enabled {
+        // Draw the text button (change color on hover)
+        let button_color = if self.enabled {
             if is_hovered {
                 self.hover_color
             } else {
@@ -327,89 +306,22 @@ impl TextButton {
             self.off_color
         };
 
-        // Slightly darken while pressed to mimic a physical button press.
-        if is_pressed {
-            button_color = shade_color(button_color, 0.80);
-        }
-
-        let is_background_transparent = button_color.a == 0.0;
-        let press_offset = if is_pressed { 1.0 } else { 0.0 };
-        let draw_x = self.x;
-        let draw_y = self.y + press_offset;
-
-        if !is_background_transparent {
-            // Draw a subtle shadow behind the button.
-            let shadow_color = Color::new(0.0, 0.0, 0.0, 0.20);
-            if self.corner_radius > 0.0 {
-                draw_round_rect(draw_x, draw_y + 2.0, self.width, self.height, self.corner_radius, shadow_color);
-            } else {
-                draw_rectangle(draw_x, draw_y + 2.0, self.width, self.height, shadow_color);
-            }
-        }
-
-        // Draw the button with or without rounded corners.
+        // Draw the button with or without rounded corners
         if self.corner_radius > 0.0 {
-            draw_round_rect(draw_x, draw_y, self.width, self.height, self.corner_radius, button_color);
-
-            // Add top highlight and bottom shade to create depth.
-            if !is_background_transparent {
-                let highlight = Color::new(1.0, 1.0, 1.0, if is_pressed { 0.10 } else { 0.28 });
-                let lowlight = Color::new(0.0, 0.0, 0.0, if is_pressed { 0.18 } else { 0.26 });
-                draw_round_rect_lines(
-                    draw_x + 1.0,
-                    draw_y + 1.0,
-                    self.width - 2.0,
-                    self.height - 2.0,
-                    (self.corner_radius - 1.0).max(0.0),
-                    1.0,
-                    highlight,
-                );
-                draw_round_rect_lines(
-                    draw_x,
-                    draw_y,
-                    self.width,
-                    self.height,
-                    self.corner_radius,
-                    1.0,
-                    lowlight,
-                );
-            }
-
-            // Draw rounded border if enabled.
+            draw_round_rect(self.x, self.y, self.width, self.height, self.corner_radius, button_color);
+            
+            // Draw rounded border if enabled
             if self.border {
-                draw_round_rect_lines(
-                    draw_x,
-                    draw_y,
-                    self.width,
-                    self.height,
-                    self.corner_radius,
-                    self.border_thickness,
-                    self.border_color,
-                );
+                draw_round_rect_lines(self.x, self.y, self.width, self.height, 
+                                     self.corner_radius, self.border_thickness, self.border_color);
             }
         } else {
-            draw_rectangle(draw_x, draw_y, self.width, self.height, button_color);
-
-            if !is_background_transparent {
-                // Bevel effect for square buttons.
-                let top_highlight = Color::new(1.0, 1.0, 1.0, if is_pressed { 0.10 } else { 0.30 });
-                let bottom_shade = Color::new(0.0, 0.0, 0.0, if is_pressed { 0.20 } else { 0.28 });
-                draw_line(draw_x + 1.0, draw_y + 1.0, draw_x + self.width - 1.0, draw_y + 1.0, 1.0, top_highlight);
-                draw_line(draw_x + 1.0, draw_y + 1.0, draw_x + 1.0, draw_y + self.height - 1.0, 1.0, top_highlight);
-                draw_line(draw_x, draw_y + self.height, draw_x + self.width, draw_y + self.height, 1.0, bottom_shade);
-                draw_line(draw_x + self.width, draw_y, draw_x + self.width, draw_y + self.height, 1.0, bottom_shade);
-            }
-
-            // Draw regular border if enabled.
+            draw_rectangle(self.x, self.y, self.width, self.height, button_color);
+            
+            // Draw regular border if enabled
             if self.border {
-                draw_rectangle_lines(
-                    draw_x,
-                    draw_y,
-                    self.width,
-                    self.height,
-                    self.border_thickness,
-                    self.border_color,
-                );
+                draw_rectangle_lines(self.x, self.y, self.width, self.height, 
+                                    self.border_thickness, self.border_color);
             }
         }
 
@@ -425,49 +337,34 @@ impl TextButton {
             Color::new(self.text_color.r, self.text_color.g, self.text_color.b, 0.5)
         };
         
-        let lines: Vec<&str> = self.text.split('\n').collect();
-        let line_height = self.font_size as f32 * 1.2;
-        let total_height = lines.len() as f32 * line_height;
-        let start_y = self.cached_text_position.y + press_offset - (total_height / 2.0) + (line_height / 2.0);
-        for (i, line) in lines.iter().enumerate() {
-            let y = start_y + i as f32 * line_height;
-            let text_width = match &self.font {
-                Some(font) => measure_text(line, Some(font), self.font_size, 1.0).width,
-                None => measure_text(line, None, self.font_size, 1.0).width,
-            };
-            let x = match self.text_align {
-                TextAlign::Left => self.x + 8.0,
-                TextAlign::Center => self.x + (self.width / 2.0) - (text_width / 2.0),
-                TextAlign::Right => self.x + self.width - text_width - 8.0,
-            };
-            match &self.font {
-                Some(font) => {
-                    draw_text_ex(
-                        line,
-                        x,
-                        y,
-                        TextParams {
-                            font: Some(font),
-                            font_size: self.font_size,
-                            color: current_text_color,
-                            ..Default::default()
-                        },
-                    );
-                },
-                None => {
-                    draw_text(
-                        line,
-                        x,
-                        y,
-                        self.font_size.into(),
-                        current_text_color,
-                    );
-                }
+        match &self.font {
+            Some(font) => {
+                draw_text_ex(
+                    &self.text,
+                    self.cached_text_position.x,
+                    self.cached_text_position.y,
+                    TextParams {
+                        font: Some(font),
+                        font_size: self.font_size,
+                        color: current_text_color,
+                        ..Default::default()
+                    },
+                );
+            },
+            None => {
+                // Use the default draw_text function
+                draw_text(
+                    &self.text,
+                    self.cached_text_position.x,
+                    self.cached_text_position.y,
+                    self.font_size.into(),
+                    current_text_color,
+                );
             }
         }
 
         // After drawing, check if the button was clicked
-        is_hovered && self.enabled && is_mouse_button_released(MouseButton::Left)
+        is_hovered && self.button_enabled && is_mouse_button_pressed(MouseButton::Left)
     }
 }
 
@@ -579,13 +476,4 @@ fn draw_round_rect_lines(x: f32, y: f32, w: f32, h: f32, radius: f32, thickness:
 
 fn lerp_color(c1: Color, c2: Color, factor: f32) -> Color {
     Color::new(c1.r * (1.0 - factor) + c2.r * factor, c1.g * (1.0 - factor) + c2.g * factor, c1.b * (1.0 - factor) + c2.b * factor, 1.0)
-}
-
-fn shade_color(color: Color, factor: f32) -> Color {
-    Color::new(
-        (color.r * factor).clamp(0.0, 1.0),
-        (color.g * factor).clamp(0.0, 1.0),
-        (color.b * factor).clamp(0.0, 1.0),
-        color.a,
-    )
 }
