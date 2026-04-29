@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 15 2026
+April 29 2026
 Updated: April 16 2026 by Tristan St-Gelasis to change when button action is triggered
 To import you need:
 Adds a button object
@@ -34,17 +34,22 @@ You can also specify a custom font with:
     btn_text.with_font(my_font.clone());
 Otherwise the default system font will be used.
 
+
 You can add rounded corners to the button with:
     btn_text.with_round(10.0);
 Where the value is the corner radius in pixels.
+
+Set vertical text alignment (top, center, bottom)
+    btn_text.with_vertical_alignment(modules::text_button::VerticalAlign::Bottom);
+Options: VerticalAlign::Top, VerticalAlign::Center, VerticalAlign::Bottom
 
 You can add a border to the button with:
     btn_text.with_border(RED, 2.0);
 Where the first value is the border color and the second is the thickness.
 
 Set text alignment (left, center, right)
-    btn_text.with_alignment(ui::text_button::TextAlign::Right);
-Options: TextAlign::Left, TextAlign::Center, TextAlign::Right (default is Center)
+    btn_text.with_alignment(modules::text_button::TextAlign::Right);
+Options: TextAlign::Left, TextAlign::Center, TextAlign::Right
 
 Multi-line support
 Use \n in the button text to break lines:
@@ -70,9 +75,17 @@ if btn_text.click() {
 Note: For buttons with transparent backgrounds (set normal_color with alpha=0), 
 only the text area is clickable, not the entire button area.
 */
+
 use macroquad::prelude::*;
 
 // Enum for text alignment within a button
+// Enum for vertical text alignment within a button
+#[allow(unused)]
+pub enum VerticalAlign {
+    Top,
+    Center,
+    Bottom,
+}
 #[allow(unused)]
 pub enum TextAlign {
     Left,
@@ -110,6 +123,9 @@ pub struct TextButton {
 
     // Text alignment
     pub text_align: TextAlign,
+
+    // Vertical text alignment
+    pub vertical_align: VerticalAlign,
 }
 
 impl TextButton {
@@ -150,8 +166,18 @@ impl TextButton {
             cached_rect,
             visible: true,
             text_align: TextAlign::Center, // Default to center alignment
+            vertical_align: VerticalAlign::Center, // Default to center vertical alignment
         }
+       
+       
     }
+     /// Set the vertical text alignment for the button
+    #[allow(unused)]
+     pub fn with_vertical_alignment(&mut self, align: VerticalAlign) -> &mut Self {
+            self.vertical_align = align;
+            // No need to update_text_position, handled in draw logic
+            self
+        }
     /// Set the text alignment for the button
     #[allow(unused)]
     pub fn with_alignment(&mut self, align: TextAlign) -> &mut Self {
@@ -428,7 +454,28 @@ impl TextButton {
         let lines: Vec<&str> = self.text.split('\n').collect();
         let line_height = self.font_size as f32 * 1.2;
         let total_height = lines.len() as f32 * line_height;
-        let start_y = self.cached_text_position.y + press_offset - (total_height / 2.0) + (line_height / 2.0);
+        // Measure baseline offset for the first line (should be similar for all lines)
+        let baseline_offset = match &self.font {
+            Some(font) => {
+                let m = measure_text(lines.get(0).unwrap_or(&"Mg"), Some(font), self.font_size, 1.0);
+                m.offset_y
+            },
+            None => {
+                let m = measure_text(lines.get(0).unwrap_or(&"Mg"), None, self.font_size, 1.0);
+                m.offset_y
+            }
+        };
+
+        let start_y = match self.vertical_align {
+                        // Add a quarter line_height for extra top padding
+                        VerticalAlign::Top => self.y + baseline_offset + press_offset + (line_height * 0.25),
+                        // Add a quarter line_height to visually center the text better
+                        VerticalAlign::Center => self.y + (self.height / 2.0) - (total_height / 2.0) + baseline_offset + press_offset + (line_height * 0.25),
+                        // For bottom, align the last line's baseline near the bottom edge with a small padding
+                        VerticalAlign::Bottom => self.y + self.height - (line_height * 0.25) - total_height + line_height + press_offset,
+        };
+        
+
         for (i, line) in lines.iter().enumerate() {
             let y = start_y + i as f32 * line_height;
             let text_width = match &self.font {
