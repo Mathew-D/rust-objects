@@ -40,6 +40,16 @@ Usage examples:
     ) {
         btn_image.set_preload(normal_preloaded, hover_preloaded);
     }
+
+5. Create directly from preloaded textures (no async):
+    let btn_image = ImageButton::from_preload(
+        100.0,
+        200.0,
+        200.0,
+        60.0,
+        texture_manager.get_preload("assets/button.png").unwrap(),
+        texture_manager.get_preload("assets/button_hover.png").unwrap(),
+    );
 */
 
 use macroquad::prelude::*;
@@ -63,6 +73,50 @@ pub struct ImageButton {
 }
 
 impl ImageButton {
+    /// Constructor that builds directly from preloaded textures — no async needed
+    #[allow(unused)]
+    pub fn from_preload(
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        normal_preloaded: (Texture2D, Option<Vec<u8>>, String),
+        hover_preloaded: (Texture2D, Option<Vec<u8>>, String),
+    ) -> Self {
+        let (texture, mask_option, filename) = normal_preloaded;
+        let (hover_texture, _, _) = hover_preloaded;
+
+        hover_texture.set_filter(FilterMode::Linear);
+
+        let (transparency_mask, tex_width, tex_height) = if let Some(mask) = mask_option {
+            (
+                mask,
+                texture.width() as usize,
+                texture.height() as usize,
+            )
+        } else {
+            let tex_width = texture.width() as usize;
+            let tex_height = texture.height() as usize;
+            let mask_size = (tex_width * tex_height + 7) / 8;
+            (vec![0xFF; mask_size], tex_width, tex_height)
+        };
+
+        Self {
+            x,
+            y,
+            width,
+            height,
+            enabled: true,
+            texture,
+            hover_texture,
+            transparency_mask,
+            tex_width,
+            tex_height,
+            visible: true,
+            filename,
+        }
+    }
+
     pub async fn new(x: f32, y: f32, width: f32, height: f32, texture_path: &str, hover_texture_path: &str) -> Self {
        
         let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;
