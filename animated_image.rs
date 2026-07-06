@@ -69,6 +69,33 @@ Then to use this you would put the following above the loop:
     128.0, 128.0 = size
     true = (loop animation)
 
+
+    // Or build directly from preloaded GIF data (no async):
+    let preloaded = texture_manager
+        .get_preloaded_animated_gif("assets/animation.gif")
+        .unwrap();
+
+    let mut gif_sprite_preloaded = AnimatedImage::from_preloaded_gif(
+        preloaded.texture,
+        preloaded.transparency_mask,
+        preloaded.frame_masks,
+        preloaded.frame_delays,
+        300.0,
+        100.0,
+        128.0,
+        128.0,
+        true,
+    );
+
+    Where the options are:
+    preloaded.texture = preloaded spritesheet texture
+    preloaded.transparency_mask = full texture collision mask
+    preloaded.frame_masks = per-frame collision masks
+    preloaded.frame_delays = GIF frame timing in seconds
+    300.0, 100.0 = position
+    128.0, 128.0 = size
+    true = (loop animation)
+
 Then inside the loop you would use:
     // Draw the current frame (animation updates automatically!)
     animated_sprite.draw();
@@ -421,7 +448,50 @@ impl AnimatedImage {
         println!("Could not load GIF '{}', returning empty animation", gif_path);
         Self::create_empty(x, y, width, height)
     }
-    
+
+    // Build directly from preloaded raw data — no async or file I/O needed.
+    // Pass the fields from a PreloadedAnimatedGif (or any source) directly.
+    #[allow(unused)]
+    pub fn from_preloaded_gif(
+        texture: Texture2D,
+        transparency_mask: Option<Vec<u8>>,
+        frame_masks: Vec<Vec<u8>>,
+        frame_delays: Vec<f32>,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        loop_animation: bool,
+    ) -> Self {
+        let frame_count = frame_delays.len().max(1);
+        let frame_width = texture.width() / frame_count as f32;
+        let frame_height = texture.height();
+        let default_frame_duration = frame_delays.first().copied().unwrap_or(0.1);
+
+        Self {
+            texture,
+            x,
+            y,
+            width,
+            height,
+            transparency_mask,
+            frame_masks: Some(frame_masks),
+            cols: frame_count,
+            rows: 1,
+            current_frame: 0,
+            total_frames: frame_count,
+            frame_width,
+            frame_height,
+            frame_duration: default_frame_duration,
+            frame_durations: Some(frame_delays),
+            time_accumulated: 0.0,
+            state: AnimationState::Playing,
+            loop_animation,
+            last_update: get_time() as f32,
+            angle: 0.0,
+        }
+    }
+
     // Process GIF data in a way that works on all platforms including WebAssembly
     fn process_gif_data(data: &[u8]) -> Option<(Vec<Vec<u8>>, Vec<f32>, usize, usize)> {
         // Try to decode the GIF using the gif crate

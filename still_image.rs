@@ -56,10 +56,21 @@ Usage examples:
     
     // The unwrap() is safe because we know the texture was preloaded
 
-5. Clear an image (set to transparent):
+5. Create directly from preloaded data (no async):
+    let img_preloaded = StillImage::from_preload(
+        texture_manager.get_preload("assets/image1.png").unwrap(),
+        100.0,
+        200.0,
+        200.0,
+        60.0,
+        true,
+        1.0,
+    );
+
+6. Clear an image (set to transparent):
     img.clear();
     
-6. Draw the image in your game loop:
+7. Draw the image in your game loop:
     img.draw();
 
 Additional functionality:
@@ -85,6 +96,32 @@ pub struct StillImage {
 }
 
 impl StillImage {
+    // Constructor that builds directly from a preloaded texture tuple — no async needed
+    #[allow(unused)]
+    pub fn from_preload(
+        preloaded: (Texture2D, Option<Vec<u8>>, String),
+        width: f32,
+        height: f32,
+        x: f32,
+        y: f32,
+        stretch_enabled: bool,
+        zoom_level: f32,
+    ) -> Self {
+        let (texture, transparency_mask, filename) = preloaded;
+        Self {
+            texture,
+            x,
+            y,
+            width,
+            height,
+            transparency_mask,
+            stretch_enabled,
+            zoom_level: zoom_level.max(0.1),
+            filename,
+            angle: 0.0,
+        }
+    }
+
     // Constructor for ImageStill with asset path and x, y location
     pub async fn new(
         asset_path: &str, 
