@@ -582,10 +582,12 @@ impl TextInput {
 
     #[allow(unused)]
     pub fn set_cursor_index(&mut self, index: usize) -> &mut Self {
-        if index <= self.text.len() {
-            self.cursor_index = index;
-            self.clear_selection();
+        let mut clamped = index.min(self.text.len());
+        while clamped > 0 && !self.text.is_char_boundary(clamped) {
+            clamped -= 1;
         }
+        self.cursor_index = clamped;
+        self.clear_selection();
         self
     }
 
@@ -790,6 +792,9 @@ impl TextInput {
 
     // Now private - internal implementation only
     fn update_internal(&mut self) {
+        // Guard against stale invalid UTF-8 byte indices before any string slicing.
+        self.ensure_indices_validity();
+
         // Skip all interaction if disabled
         if !self.enabled {
             self.active = false;
@@ -852,13 +857,8 @@ impl TextInput {
                     consumed_shortcut = true;
                 } else if is_key_pressed(KeyCode::C) {
                     // Copy to clipboard
-                    if let Some(start) = self.selection_anchor {
-                        if start != self.cursor_index {
-                            let (s, e) = if start < self.cursor_index {
-                                (start, self.cursor_index)
-                            } else {
-                                (self.cursor_index, start)
-                            };
+                    if let Some((s, e)) = self.get_selection_range() {
+                        if s != e {
                             let selected_text = self.text[s..e].to_string();
                             copy_to_clipboard(selected_text);
                         }
@@ -866,13 +866,8 @@ impl TextInput {
                     consumed_shortcut = true;
                 } else if is_key_pressed(KeyCode::X) {
                     // Cut to clipboard
-                    if let Some(start) = self.selection_anchor {
-                        if start != self.cursor_index {
-                            let (s, e) = if start < self.cursor_index {
-                                (start, self.cursor_index)
-                            } else {
-                                (self.cursor_index, start)
-                            };
+                    if let Some((s, e)) = self.get_selection_range() {
+                        if s != e {
                             let selected_text = self.text[s..e].to_string();
                             copy_to_clipboard(selected_text);
                             self.delete_selection();
@@ -1295,8 +1290,12 @@ impl TextInput {
                 );
             } else {
                 let mut cursor_offset = 0.0;
-                if self.cursor_index > 0 {
-                    let cursor_text = &self.text[..self.cursor_index];
+                let mut safe_cursor_index = self.cursor_index.min(self.text.len());
+                while safe_cursor_index > 0 && !self.text.is_char_boundary(safe_cursor_index) {
+                    safe_cursor_index -= 1;
+                }
+                if safe_cursor_index > 0 {
+                    let cursor_text = &self.text[..safe_cursor_index];
                     if let Some(font) = &self.font {
                         for c in cursor_text.chars() {
                             cursor_offset += measure_text(&c.to_string(), Some(font), self.font_size as u16, 1.0).width;
