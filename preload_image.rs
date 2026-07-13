@@ -1,16 +1,16 @@
 /*
 Made by: Mathew Dusome
-Date: 2025-05-10
+Date: 2026-06-13
 Program Details: Central texture manager for preloading and sharing textures with loading screen support
 
 To use this:
-1. In your mod.rs file located in the modules folder add the following to the end of the file:
+1. In your utils.rs file add the following to the end of the file:
     pub mod preload_image;
 
 2. Add the following use commands:
-    use crate::modules::preload_image::TextureManager;
-    use crate::modules::preload_image::LoadingScreenOptions; // If you want to customize the loading screen
-    use crate::modules::preload_image::GifLoadingScreenInfo; // If you want to add animated GIFs to loading screen
+    use crate::utils::preload_image::TextureManager;
+    use crate::utils::preload_image::LoadingScreenOptions; // If you want to customize the loading screen
+    use crate::utils::preload_image::GifLoadingScreenInfo; // If you want to add animated GIFs to loading screen
 
 3. Create and initialize a TextureManager:
     let tm = TextureManager::new();
@@ -131,7 +131,6 @@ Note: This TextureManager implementation is thread-safe and web-compatible. The 
 uses coroutines to load assets in the background, avoiding black flashing on web platforms.
 GIFs are pre-preloaded before the loading screen displays, ensuring smooth animation during loading.
 */
-use crate::modules::still_image::set_texture_main;
 use macroquad::audio::{Sound, load_sound};
 use macroquad::experimental::coroutines::start_coroutine;
 use macroquad::prelude::*;
@@ -774,6 +773,61 @@ impl TextureManager {
             next_frame().await;
         }
     }
+}
+
+async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
+    let image = load_image(texture_path).await.unwrap();
+    let pixels = image.bytes;
+
+    if pixels.len() != width * height * 4 {
+        return None;
+    }
+
+    let mut has_transparency = false;
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 4;
+            let alpha = pixels[idx + 3];
+            if alpha < 255 {
+                has_transparency = true;
+                break;
+            }
+        }
+        if has_transparency {
+            break;
+        }
+    }
+
+    if !has_transparency {
+        return None;
+    }
+
+    let mut mask = vec![0; (width * height + 7) / 8];
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 4;
+            let alpha = pixels[idx + 3];
+            let mask_byte_idx = (y * width + x) / 8;
+            let bit_offset = (y * width + x) % 8;
+
+            if alpha > 0 {
+                mask[mask_byte_idx] |= 1 << (7 - bit_offset);
+            } else {
+                mask[mask_byte_idx] &= !(1 << (7 - bit_offset));
+            }
+        }
+    }
+
+    Some(mask)
+}
+
+async fn set_texture_main(texture_path: &str) -> (Texture2D, Option<Vec<u8>>) {
+    let texture = load_texture(texture_path).await.unwrap();
+    texture.set_filter(FilterMode::Linear);
+    let tex_width = texture.width() as usize;
+    let tex_height = texture.height() as usize;
+    let transparency_mask = generate_mask(texture_path, tex_width, tex_height).await;
+    (texture, transparency_mask)
 }
 
 fn build_preloaded_gif(path: &str, data: &[u8]) -> Option<PreloadedAnimatedGif> {

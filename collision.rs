@@ -13,11 +13,11 @@ native = ["rayon"]    # The "native" feature enables Rayon
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = "1.7"  # Rayon is only included for native builds
 
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your utils.rs file add the following to the end of the file:
     pub mod collision;
 Then in with the other use command add:
 
-use crate::modules::collision::check_collision;
+use crate::utils::collision::check_collision;
  
 Then in the loop you would use the follow to check if two images hit: 
 let collision = check_collision(&img1, &img2, 1); //Where 1 is the number of pixels to skip
@@ -41,7 +41,7 @@ pub trait Collidable {
     fn get_mask(&self) -> Option<Vec<u8>>;
     fn get_angle(&self) -> f32; // New method to get rotation angle
 }
-use crate::modules::still_image::StillImage;
+use crate::ui::still_image::StillImage;
 // Implement for StillImage
 impl Collidable for StillImage {
     fn pos(&self) -> Vec2 {
@@ -65,7 +65,7 @@ impl Collidable for StillImage {
     }
 }
 /* 
-use crate::modules::animated_image::AnimatedImage;
+use crate::ui::animated_image::AnimatedImage;
 // Implement for AnimatedImage
 impl Collidable for AnimatedImage {
     fn pos(&self) -> Vec2 {

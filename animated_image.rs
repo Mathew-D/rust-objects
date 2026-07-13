@@ -1,14 +1,14 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
+Jun 13, 2026
 To import you need:
 Adds an animated image object for sprite animations with GIF support
 
-In the mod modules section located in the modules folder add the following to the end :
+In the ui.rs file add the following to the end :
     pub mod animated_image;
     
 Then add the following with the use commands:
-use crate::modules::animated_image::AnimatedImage;
+use crate::ui::animated_image::AnimatedImage;
 
 GIF ANIMATION SUPPORT:
 This module now supports animated GIFs on both desktop and web platforms.
