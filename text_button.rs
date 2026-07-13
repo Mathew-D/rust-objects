@@ -1,15 +1,15 @@
 /*
 Made by: Mathew Dusome
-April 29 2026
+Jun 13, 2026
 Updated: April 16 2026 by Tristan St-Gelasis to change when button action is triggered
 To import you need:
 Adds a button object
 
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your ui.rs file add the following to the end of the file:
     pub mod text_button;
 
 Then with the other use commands add:
-use crate::modules::text_button::TextButton;
+use crate::ui::text_button::TextButton;
 
 Then add the following to the top of your file:
 
@@ -40,7 +40,7 @@ You can add rounded corners to the button with:
 Where the value is the corner radius in pixels.
 
 Set vertical text alignment (top, center, bottom)
-    btn_text.with_vertical_alignment(modules::text_button::VerticalAlign::Bottom);
+    btn_text.with_vertical_alignment(crate::ui::text_button::VerticalAlign::Bottom);
 Options: VerticalAlign::Top, VerticalAlign::Center, VerticalAlign::Bottom
 
 You can add a border to the button with:
@@ -48,7 +48,7 @@ You can add a border to the button with:
 Where the first value is the border color and the second is the thickness.
 
 Set text alignment (left, center, right)
-    btn_text.with_alignment(modules::text_button::TextAlign::Right);
+    btn_text.with_alignment(crate::ui::text_button::TextAlign::Right);
 Options: TextAlign::Left, TextAlign::Center, TextAlign::Right
 
 Multi-line support

@@ -1,14 +1,14 @@
 /*
 Made by: Mathew Dusome
-Feb 6 2025
-Program Details: Adds a button object with image support
+Jun 13 2026
+Program Details: Adds a button object with image support and preloading
 
 To import you need:
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your ui.rs file add the following to the end of the file:
     pub mod image_button;
 
 Then add the following with the use commands:
-    use crate::modules::image_button::ImageButton;
+    use crate::ui::image_button::ImageButton;
 
 Usage examples:
 1. Create an image button:
@@ -21,27 +21,7 @@ Usage examples:
         "assets/button_hover.png",  // hover state image
     ).await;
 
-2. Check for clicks in your game loop:
-    if btn_image.click() {
-        // Handle button click
-    }
-
-3. Change button images:
-    // Change both normal and hover images
-    btn_image.set_image(
-        "assets/new_button.png",
-        "assets/new_button_hover.png"
-    ).await;
-
-4. Use with preloaded textures from TextureManager:
-    if let (Some(normal_preloaded), Some(hover_preloaded)) = (
-        texture_manager.get_preload("assets/new_button.png"),
-        texture_manager.get_preload("assets/new_button_hover.png")
-    ) {
-        btn_image.set_preload(normal_preloaded, hover_preloaded);
-    }
-
-5. Create directly from preloaded textures (no async):
+2. Create directly from preloaded textures (no async):
     let btn_image = ImageButton::from_preload(
         100.0,
         200.0,
@@ -50,6 +30,22 @@ Usage examples:
         texture_manager.get_preload("assets/button.png").unwrap(),
         texture_manager.get_preload("assets/button_hover.png").unwrap(),
     );
+
+3. Check for clicks in your game loop:
+    if btn_image.click() {
+        // Handle button click
+    }
+
+4. Change button images:
+    // Change both normal and hover images
+    btn_image.set_image(
+        "assets/new_button.png",
+        "assets/new_button_hover.png"
+    ).await;
+
+
+
+
 */
 
 use macroquad::prelude::*;
@@ -116,7 +112,7 @@ impl ImageButton {
             filename,
         }
     }
-
+#[allow(unused)]
     pub async fn new(x: f32, y: f32, width: f32, height: f32, texture_path: &str, hover_texture_path: &str) -> Self {
        
         let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;
@@ -128,6 +124,7 @@ impl ImageButton {
     }
    
     /// Method to set new images for the button
+    #[allow(unused)]
     pub async fn set_image(&mut self, texture_path: &str, hover_texture_path: &str) {
         // Update normal texture
         let (texture, transparency_mask, tex_width, tex_height) = set_texture(texture_path).await;
@@ -234,6 +231,7 @@ impl ImageButton {
 }
 
 // ✅ Works for Web and Native by loading the image as raw bytes
+#[allow(unused)]
 async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Option<Vec<u8>> {
     let image = load_image(texture_path).await.unwrap();
     let pixels = image.bytes; // Image pixels in RGBA8 format
@@ -286,7 +284,7 @@ async fn generate_mask(texture_path: &str, width: usize, height: usize) -> Optio
 
     Some(mask)
 }
-
+#[allow(unused)]
 pub async fn set_texture(texture_path: &str) -> (Texture2D, Vec<u8>, usize, usize) {
     let texture = load_texture(texture_path).await.unwrap();
     texture.set_filter(FilterMode::Linear);
