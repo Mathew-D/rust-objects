@@ -135,7 +135,11 @@ use macroquad::audio::{Sound, load_sound};
 use macroquad::experimental::coroutines::start_coroutine;
 use macroquad::prelude::*;
 use macroquad::texture::Texture2D;
+use image::codecs::gif::GifDecoder;
+use image::AnimationDecoder;
+use image::ImageDecoder;
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -161,6 +165,7 @@ pub struct PreloadedAnimatedGif {
 
 /// Configuration for displaying animated GIFs on the loading screen
 #[derive(Clone)]
+#[warn(unused)]
 pub struct GifLoadingScreenInfo {
     /// Path to the animated GIF file
     pub gif_path: String,
@@ -178,6 +183,7 @@ pub struct GifLoadingScreenInfo {
 
 impl GifLoadingScreenInfo {
     /// Create a new GIF loading screen info
+    #[allow(unused)]
     pub fn new(gif_path: String, x: f32, y: f32, width: f32, height: f32) -> Self {
         Self {
             gif_path,
@@ -904,88 +910,23 @@ fn build_preloaded_gif(path: &str, data: &[u8]) -> Option<PreloadedAnimatedGif> 
 }
 
 fn process_gif_data(data: &[u8]) -> Option<(Vec<Vec<u8>>, Vec<f32>, usize, usize)> {
-    match gif::Decoder::new(data) {
-        Ok(mut decoder) => {
-            let mut frames = Vec::new();
-            let mut delays = Vec::new();
+    let decoder = GifDecoder::new(Cursor::new(data)).ok()?;
+    let (width, height) = decoder.dimensions();
 
-            let width = decoder.width() as usize;
-            let height = decoder.height() as usize;
-            let global_palette = decoder.global_palette().map(|p| p.to_vec());
-
-            while let Ok(Some(frame)) = decoder.read_next_frame() {
-                let delay_sec = frame.delay as f32 / 100.0;
-                if delay_sec > 0.0 {
-                    delays.push(delay_sec);
-                } else {
-                    delays.push(0.1);
-                }
-
-                let mut frame_data = vec![0; width * height * 4];
-
-                let frame_width = frame.width as usize;
-                let frame_height = frame.height as usize;
-                let frame_left = frame.left as usize;
-                let frame_top = frame.top as usize;
-
-                for y in 0..height {
-                    for x in 0..width {
-                        let idx = (y * width + x) * 4;
-                        frame_data[idx + 3] = 0;
-                    }
-                }
-
-                let palette = if let Some(frame_palette) = &frame.palette {
-                    frame_palette.as_slice()
-                } else if let Some(ref global) = global_palette {
-                    global.as_slice()
-                } else {
-                    continue;
-                };
-
-                let transparent_idx = frame.transparent.unwrap_or(255);
-
-                for y in 0..frame_height {
-                    for x in 0..frame_width {
-                        let src_idx = y * frame_width + x;
-                        let pixel_idx = frame.buffer[src_idx];
-
-                        if pixel_idx == transparent_idx {
-                            continue;
-                        }
-
-                        let global_x = frame_left + x;
-                        let global_y = frame_top + y;
-
-                        if global_x >= width || global_y >= height {
-                            continue;
-                        }
-
-                        let dest_idx = (global_y * width + global_x) * 4;
-                        let color_index = pixel_idx as usize * 3;
-
-                        if color_index + 2 < palette.len() {
-                            frame_data[dest_idx] = palette[color_index];
-                            frame_data[dest_idx + 1] = palette[color_index + 1];
-                            frame_data[dest_idx + 2] = palette[color_index + 2];
-                            frame_data[dest_idx + 3] = 255;
-                        }
-                    }
-                }
-
-                frames.push(frame_data);
-            }
-
-            if frames.is_empty() {
-                return None;
-            }
-
-            if delays.is_empty() || delays.iter().all(|&d| d <= 0.0) {
-                delays = vec![0.1; frames.len()];
-            }
-
-            Some((frames, delays, width, height))
-        }
-        Err(_) => None,
+    let frames = decoder.into_frames().collect_frames().ok()?;
+    if frames.is_empty() {
+        return None;
     }
+
+    let mut frame_bytes = Vec::with_capacity(frames.len());
+    let mut delays = Vec::with_capacity(frames.len());
+
+    for frame in frames {
+        let delay: std::time::Duration = frame.delay().into();
+        let delay_sec = delay.as_secs_f32().max(0.001);
+        delays.push(delay_sec);
+        frame_bytes.push(frame.into_buffer().into_raw());
+    }
+
+    Some((frame_bytes, delays, width as usize, height as usize))
 }
