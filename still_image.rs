@@ -123,6 +123,7 @@ impl StillImage {
     }
 
     // Constructor for ImageStill with asset path and x, y location
+    #[allow(unused)]
     pub async fn new(
         asset_path: &str, 
         width: f32, 
