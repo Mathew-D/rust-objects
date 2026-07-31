@@ -5,17 +5,16 @@ Program Details: Scale module for handling screen scaling and virtual resolution
 
 To import you need:
 
-In your mod.rs file located in the modules folder add the following to the end of the file:
+In your utils.rs file located in the root folder add the following to the end of the file:
     pub mod scale;
-In the Cargo.toml file add the following:
+In the Cargo.toml modify the file to add scale as a feature in default like shown below:
     [features]
-    scale = []
     default = ["scale"]
 
 Then in your main.rs file add the following to the top of the file:
     
 Then add the following with the use commands:
-use crate::modules::scale::use_virtual_resolution;
+use crate::utils::scale::use_virtual_resolution;
 
 Usage examples:
 1. Setting up virtual resolution in your game loop:

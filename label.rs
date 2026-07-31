@@ -1,15 +1,15 @@
 /*
 Made by: Mathew Dusome
-May 2 2025
+Jul 31 2026
 To import you need:
 Adds a label object
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your ui.rs file located in the root:
         pub mod label;
     
 
 Add with the other use statements
-    use crate::modules::label::Label;
+    use crate::ui::label::Label;
 
 Then to use this you would put the following above the loop: 
     let lbl_out = Label::new("Hello\nWorld", 50.0, 100.0, 30);
@@ -34,8 +34,8 @@ You can set a fixed size for the label with:
 Where the values are width and height in pixels.
 
 You can also set the text alignment within a fixed-size label with:
-     lbl_out.with_alignment(modules::label::TextAlign::Center);
-Options are modules::label::TextAlign::Left, objects::label::TextAlign::Center, and objects::label::TextAlign::Right.
+     lbl_out.with_alignment(crate::ui::label::TextAlign::Center);
+Options are crate::ui::label::TextAlign::Left, crate::ui::label::TextAlign::Center, and crate::ui::label::TextAlign::Right.
 
 To access the label's position:
      let x = lbl_out.get_x();
@@ -72,7 +72,7 @@ Example:
             .with_round(8.0)
             .with_border(RED, 1.5)
             .with_fixed_size(250.0, 120.0)
-            .with_alignment(modules::label::TextAlign::Center)
+            .with_alignment(crate::ui::label::TextAlign::Center)
             .with_visibility(true); // Explicitly set visibility (default is true)
 Otherwise the default system font will be used.
 

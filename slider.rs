@@ -1,14 +1,15 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
+July 31, 2026
+Program Details: Adds a slider UI component for numeric input
 To import you need:
 Adds a slider UI component for numeric input
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your ui.rs file in the root, add the following to the end of the file
     pub mod slider;
     
 Then add the following with the use commands:
-use crate::modules::slider::Slider;
+use crate::ui::slider::Slider;
 
 Then to use this you would put the following above the loop: 
     // Create a basic slider (horizontal by default)

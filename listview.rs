@@ -1,14 +1,14 @@
 /*
 ListView Widget - Scrollable list with selection support
 Made by: Mathew Dusome
-Date: April 26, 2025
+Date: Jul 31 2026
 
 === SETUP ===
-1. Add to modules/mod.rs:
+1. Add to ui.rs:
    pub mod listview;
 
 2. Add import in main.rs:
-   use crate::modules::listview::ListView;
+   use crate::ui::listview::ListView;
 
 === BASIC USAGE ===
 Create a ListView (before your main loop):
