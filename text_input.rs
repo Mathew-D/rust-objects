@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 1 2026 Second Release
+Jul 31, 2026
 Adds a text input object
 
 ================================================================================
@@ -9,17 +9,21 @@ CLIPBOARD SUPPORT
 No WEB Support
 Ctrl+C, Ctrl+V, and Ctrl+X are implemented on windows, linux and macOS using system clipboard utilities
 (wl-copy/wl-paste for Wayland, xclip for X11, pbcopy/pbpaste for macOS, and clip/Get-Clipboard for Windows).
-Must add the following to Cargo.toml to enable clipboard support on desktop platforms:
+Running the following command in terminal:
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-arboard = { version = "3.6", features = ["wayland-data-control"] }
+    cargo add arboard@3.6 --features wayland-data-control --target 'cfg(not(target_arch = "wasm32"))'
+
+Or to manunal add if adding to Cargo.toml:
+
+    [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+    arboard = { version = "3.6", features = ["wayland-data-control"] }
 
 
-In your mod.rs file located in the modules folder add the following to the end of the file
+In your src/ui.rs file add the following to the end of the file
         pub mod text_input;
 
-Add with the other use statements
-    use crate::modules::text_input::TextInput;
+Add the following in the screen you want to use the textinput in with the other use statements
+    use crate::ui::text_input::TextInput;
 
 Then to use this you would put the following above the loop:
     let mut txt_input = TextInput::new(100.0, 100.0, 300.0, 40.0, 25.0);
