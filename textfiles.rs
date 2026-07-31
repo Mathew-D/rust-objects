@@ -1,217 +1,375 @@
 /*
 Made by: Mathew Dusome
 Jul 31 2026
+Turso (libSQL) database module for Rust
+. Add to mod.rs: pub mod database;
+2. Sign up: https://turso.tech
+3. Create DB: turso db create my-db
+4. Get URL: turso db show my-db
+5. Get token: turso db tokens create my-db
 
-To import you need:
-Adds TextFile functionality for cross-platform file operations
+6. Add dependencies to Cargo.toml. Add these 2 lines to [dependencies]:
+    In the termal, run:
+        cargo add serde@1.0 --features derive
+        cargo add serde_json@1.0
+        cargo add ureq@2.9 --features json --target 'cfg(not(target_arch = "wasm32"))'
 
-    In your mod.rs file located in the modules folder add the following to the end of the file
-        pub mod textfiles;
+    Or manually add to Cargo.toml in the [dependencies] section:
         
-    Add with the other use statements
-        use crate::modules::textfiles::TextFile;
+        serde = { version = "1.0", features = ["derive"] }
+        serde_json = "1.0"
+      
+      and add this to the [target.'cfg(not(target_arch = "wasm32"))'.dependencies] section: (create it if it doesn't exist)
+        ureq = { version = "2.9", features = ["json"] }
+   
+7.  Follow the instructions db-directions.md to set up your Cloudflare Worker backend. This is required for the database module to work in both native and WASM builds.
+
+8. Add use statement:
+    use crate::utils::database::{create_database_client, DatabaseTable};
+9. Add to mod.rs:
+    pub mod database;
+
+
+================================
+CUSTOMIZE YOUR DATABASE SCHEMA:
+================================
+1. Modify the DatabaseTable struct below
+   - Add/remove fields to match your table columns
+   - Use appropriate Rust types: i32 for INTEGER, String for TEXT, bool for BOOLEAN, f64 for REAL
+   - Keep id: i32 (0 for INSERT means auto-generate, populated with actual ID for SELECT)
+   - Use serde attributes for custom naming if needed
+
+2. Create your table in Turso (via CLI or SQL):
+   
+   Using Turso CLI:
+     turso db shell my-db
+     CREATE TABLE my_table (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       column1 TEXT NOT NULL,
+       column2 INTEGER,
+       ...
+     );
 
  
+3. Column type mapping:
+   - INTEGER → i32, i64
+   - TEXT → String
+   - REAL → f64
+   - BOOLEAN → bool
+   - NUMERIC → f64 or String
 
-Simple examples:
+================================
+USAGE EXAMPLES:
+================================
 
-1. Save different data to separate files:
+// NOTE: The table used in these examples is called 'messages'.
+    let client = create_database_client();
 
-    // Save string data (player names)
-    let names = vec!["Alice", "Bob", "Charlie"];
-    let result = TextFile::save_strings("player_names.txt", names).await;
-    if let Err(e) = result {
-        println!("Error saving names: {}", e);
-    }
-    
-    // Save integer data (scores)
-    let scores = vec![100, 85, 92];
-    let result = TextFile::save_numbers("high_scores.txt", scores).await;
-    if let Err(e) = result {
-        println!("Error saving scores: {}", e);
-    }
-    
-
-2. Load different data from separate files:
-
-    // Load player names
-    let result = TextFile::load_strings("player_names.txt").await;
-    Without error checking:
-    let names: Vec<String> = result.unwrap_or_default();
-
-    With error checking:
-    if let Ok(names) = result {
-        for name in names {
-            println!("Player: {}", name);
+// Fetch all records (for display)
+    let mut records: Vec<DatabaseTable> = Vec::new();
+    let fetched_results = client.fetch_table("messages").await;
+    if let Ok(result) = fetched_results {
+        records = result;
+       // To update a ListView with these records:
+        // update_listview(&mut list_view, &records);
         }
-    } else if let Err(e) = result {
-        println!("Error loading names: {}", e);
-    }
-    
-    // Load high scores
-    let result = TextFile::load_numbers::<i32>("high_scores.txt").await;
-    if let Ok(scores) = result {
-        for score in scores {
-            println!("Score: {}", score);
-        }
-    } else if let Err(e) = result {
-        println!("Error loading scores: {}", e);
-    }
-    
-
-3. Load game configuration from an asset file:
-
-    let result = TextFile::load_asset("assets/config.txt").await;
-    if let Ok(content) = result {
-        for line in content.lines() {
-            println!("Config: {}", line);
-        }
-    } else if let Err(e) = result {
-        println!("Error loading config: {}", e);
+    } else {
+       println!("Error fetching records from database: {} ",fetched_results.err().unwrap());
     }
 
-Platform notes:
-- On desktop: Saves files with the exact filename you provide (include .txt extension)
-- On web: Uses browser's localStorage via quad-storage with the same API
-- Asset loading works on both platforms, but web requires files in the assets directory
+     if let Ok(Some(record)) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("Successfully fetched record from database.");
+      else if let Ok(None) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("No record found with id {}", id);
+      } else if let Err(err) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("Error fetching record from database: {}", err);
+      }
+
+// Insert a record (from user text input)
+    let new_record = DatabaseTable { id: 0, text: "User entered text".to_string() };
+    let insert_results =  client.insert_record("messages", &new_record).await;
+    if let Ok(id) = insert_results {
+        // Inserted, id contains the new record's id
+    } else {
+        println!("Error inserting records from database: {} ",insert_results.err().unwrap());
+    }
+
+
+// Update a record by id (Can only do one column at a time with this method)
+    if let Ok(updated_count) = client.update_record_by_id("messages", 5, "text", "New text").await {
+        // updated_count is the number of records updated
+    } else {
+        // Handle error
+    }
+
+// Update a record by struct (update all non-id fields)
+    let updated_record = DatabaseTable { id: 5, text: "Updated text".to_string() };
+    if let Ok(updated_count) = client.update_record_by_struct("messages", &updated_record).await {
+        // updated_count is the number of records updated
+    } else {
+        // Handle error
+    }
+
+// Delete a record by id (from user id input)
+    if let Ok(deleted_count) = client.delete_record_by_id("messages", 5).await {
+        // deleted_count is the number of records deleted
+    } else {
+        // Handle error
+    }
+
+
+// Displaying records in a ListView:
+//Where 'list_view' is your ListView instance and 'records' is the Vec<DatabaseTable> fetched from the database.
+//Change the items.push! line to customize how each record is displayed in the list.
+   
+   fn update_listview(list_view: &mut ListView, messages: &Vec<DatabaseTable>) {
+    list_view.clear();
+    let mut items: Vec<String> = Vec::new();
+    for (i, msg) in messages.iter().enumerate() {
+        items.push(format!("  {}: ID={}, Text={}", i + 1, msg.id, msg.text));
+    }
+    list_view.add_items(&items);
+}
 */
 
-use macroquad::prelude::*;
-
-// Only use extern "C" for localStorage in WASM
+use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
+use ureq;
 #[cfg(target_arch = "wasm32")]
-extern "C" {
-    // Save a string to localStorage: js_local_storage_set(key_ptr, key_len, value_ptr, value_len)
-    fn js_local_storage_set(key_ptr: *const u8, key_len: usize, value_ptr: *const u8, value_len: usize);
-    // Get a string from localStorage: returns length, fills buffer with value if found
-    // Returns length of value, or 0 if not found
-    fn js_local_storage_get(key_ptr: *const u8, key_len: usize, out_ptr: *mut u8, out_len: usize) -> usize;
+use macroquad::prelude::next_frame;
+
+// Helper function for serde to skip serializing id when it's 0
+fn is_zero(num: &i32) -> bool {
+    *num == 0
 }
 
-/// TextFile is a utility module for reading and writing text files
-/// that works across all platforms, including web.
-pub struct TextFile;
+// URL of your Cloudflare Worker backend
+pub const WORKER_URL: &str = "https://db-worker.mathew-dusome.workers.dev";
 
-impl TextFile {
-    /// Saves a vector of strings to a file or local storage (for web)
-    pub async fn save(name: &str, data: Vec<String>) -> Result<(), String> {
-        let joined = data.join("\n");
-        
-        #[cfg(target_arch = "wasm32")]
-        {
-            // Call JS FFI to save to localStorage
-            let key_bytes = name.as_bytes();
-            let value_bytes = joined.as_bytes();
-            unsafe {
-                js_local_storage_set(
-                    key_bytes.as_ptr(), key_bytes.len(),
-                    value_bytes.as_ptr(), value_bytes.len()
-                );
-            }
-            Ok(())
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // Use the exact filename provided (no auto extension)
-            let filename = name;
-            
-            std::fs::write(&filename, joined)
-                .map_err(|e| format!("Failed to write to file {}: {}", filename, e))
-        }
-    }
 
-    /// Loads a vector of strings from a file or local storage (for web)
-    pub async fn load(name: &str) -> Result<Vec<String>, String> {
-        #[cfg(target_arch = "wasm32")]
-        {
-            // Call JS FFI to load from localStorage
-            let key_bytes = name.as_bytes();
-            // Allocate a buffer for the value (max 16KB)
-            let mut buf = vec![0u8; 16 * 1024];
-            let len = unsafe {
-                js_local_storage_get(
-                    key_bytes.as_ptr(), key_bytes.len(),
-                    buf.as_mut_ptr(), buf.len()
-                )
-            };
-            if len == 0 {
-                return Ok(Vec::new());
-            }
-            let content = String::from_utf8_lossy(&buf[..len]).to_string();
-            Ok(content.lines().map(|s| s.to_string()).collect::<Vec<String>>())
+// ============================================================================
+// CUSTOMIZE THIS STRUCT FOR YOUR DATABASE SCHEMA
+// ============================================================================
+
+/// Your database record struct - used for both INSERT and SELECT operations
+/// When inserting: set id to 0 (it will be auto-generated by the database)
+/// When fetching: id will be populated with the actual ID
+/// 
+/// Modify this struct to match your table columns:
+/// #[derive(Debug, Deserialize, Serialize, Clone)]
+/// pub struct DatabaseTable {
+///     #[serde(default, skip_serializing_if = "is_zero")]
+///     pub id: i32,
+///     pub email: String,
+///     pub age: i32,
+///     pub active: bool,
+///     pub score: f64,
+/// }
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DatabaseTable {
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub id: i32,
+    pub text: String,
+    // Example: Add more fields like this:
+    // pub email: String,
+    // pub age: i32,
+    // pub active: bool,
+    // pub score: f64,
+}
+
+// ============================================================================
+// CONVENIENCE FUNCTIONS
+// ============================================================================
+
+#[allow(unused)]
+pub fn create_database_client() -> DatabaseClient {
+    DatabaseClient::new(WORKER_URL.to_string())
+}
+
+
+/// Create a table with custom name and schema
+/// The table name and columns are fully customizable
+/// Update this function if you want to change the table structure
+/// 
+/// Example for different schemas:
+/// ```
+/// // For users table:
+/// CREATE TABLE users (
+///   id INTEGER PRIMARY KEY AUTOINCREMENT,
+///   email TEXT NOT NULL UNIQUE,
+///   age INTEGER,
+///   active BOOLEAN DEFAULT 1,
+///   score REAL
+/// )
+/// 
+/// // For products table:
+/// CREATE TABLE products (
+///   id INTEGER PRIMARY KEY AUTOINCREMENT,
+///   name TEXT NOT NULL,
+///   price REAL,
+///   in_stock BOOLEAN
+/// )
+/// ```
+
+pub struct DatabaseClient {
+    worker_url: String,
+}
+
+impl DatabaseClient {
+        #[allow(unused)]    
+        pub async fn insert_record<T: Serialize>(&self, table: &str, record: &T) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "insert",
+                "table": table,
+                "record": record
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["id"].as_i64().unwrap_or(0))
+        }
+
+        #[allow(unused)]
+        pub async fn update_record_by_struct<T: Serialize>(&self, table: &str, record: &T) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "update",
+                "table": table,
+                "record": record
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["updated"].as_i64().unwrap_or(0))
+        }
+
+        #[allow(unused)]
+        pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &serde_json::Value) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "update_by_column",
+                "table": table,
+                "id": id,
+                "column": column,
+                "value": value
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["updated"].as_i64().unwrap_or(0))
+        }
+
+        #[allow(unused)]
+        pub async fn delete_record_by_id(&self, table: &str, id: i64) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "delete",
+                "table": table,
+                "id": id
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["deleted"].as_i64().unwrap_or(0))
         }
         
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // Use the exact filename provided (no auto extension)
-            let filename = name;
+        #[allow(unused)]
+        async fn send_request(&self, payload: &serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+            let body = payload.to_string();
             
-            match std::fs::read_to_string(&filename) {
-                Ok(content) => Ok(content.lines().map(|s| s.to_string()).collect()),
-                Err(e) => {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        Ok(Vec::new()) // Return empty vector if file doesn't exist yet
-                    } else {
-                        Err(format!("Failed to read file {}: {}", filename, e))
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let url = &self.worker_url;
+                let response = ureq::post(url)
+                    .set("Content-Type", "application/json")
+                    .send_string(&body);
+                let text = match response {
+                    Ok(resp) => resp.into_string()?,
+                    Err(ureq::Error::Status(code, resp)) => {
+                        let err_body = resp.into_string().unwrap_or_else(|_| "Could not read error body".to_string());
+                        return Err(format!("HTTP {} error: {}", code, err_body).into());
                     }
+                    Err(e) => return Err(e.into()),
+                };
+                let json: serde_json::Value = serde_json::from_str(&text)?;
+                return Ok(json);
+            }
+            
+            #[cfg(target_arch = "wasm32")]
+            {
+                #[link(wasm_import_module = "env")]
+                extern "C" {
+                    fn mq_db_query(ptr: *const u8, len: usize, url_ptr: *const u8, url_len: usize);
+                    fn mq_db_query_result_len() -> usize;
+                    fn mq_db_query_fill_result(ptr: *mut u8);
+                    fn mq_db_query_clear_result();
                 }
+                
+                let url_bytes = self.worker_url.as_bytes();
+                let json_bytes = body.as_bytes();
+                // Call JS: mq_db_query(ptr, len, url_ptr, url_len)
+                unsafe {
+                    mq_db_query(
+                        json_bytes.as_ptr(),
+                        json_bytes.len(),
+                        url_bytes.as_ptr(),
+                        url_bytes.len(),
+                    );
+                }
+                let mut tries = 0;
+                let max_tries = 100;
+                let mut result_len = 0;
+                while tries < max_tries {
+                    result_len = unsafe { mq_db_query_result_len() };
+                    if result_len > 0 {
+                        break;
+                    }
+                    tries += 1;
+                    next_frame().await;
+                }
+                if result_len == 0 {
+                    return Err("No result from JS db_query (timeout or JS error)".into());
+                }
+                let mut buf = vec![0u8; result_len];
+                unsafe {
+                    mq_db_query_fill_result(buf.as_mut_ptr());
+                    mq_db_query_clear_result();
+                }
+                let text = String::from_utf8(buf).map_err(|e| format!("UTF-8 error: {}", e))?;
+                let json: serde_json::Value = serde_json::from_str(&text)?;
+                return Ok(json);
+            }
+            
+            #[cfg(not(any(target_arch = "wasm32", not(target_arch = "wasm32"))))]
+            {
+                unreachable!("This should never be reached");
             }
         }
+    pub fn new(worker_url: String) -> Self {
+        Self { worker_url }
     }
 
-    /// Saves a vector of strings to a file or local storage (for web)
-    /// Convenience method that takes Vec<&str> directly
-    pub async fn save_strings<T: AsRef<str>>(name: &str, data: Vec<T>) -> Result<(), String> {
-        let string_data: Vec<String> = data.into_iter()
-            .map(|s| s.as_ref().to_string())
-            .collect();
-        Self::save(name, string_data).await
-    }
 
-    /// Saves a vector of numbers to a file or local storage (for web)
-    /// Handles any type that can be converted to a string
-    #[allow(dead_code)]
-    pub async fn save_numbers<T: ToString>(name: &str, data: Vec<T>) -> Result<(), String> {
-        let string_data: Vec<String> = data.into_iter()
-            .map(|n| n.to_string())
-            .collect();
-        Self::save(name, string_data).await
-    }
-
-    /// Loads a vector of strings from a file or local storage (for web)
-    /// Alias for load() for consistent naming with save_strings()
-    pub async fn load_strings(name: &str) -> Result<Vec<String>, String> {
-        Self::load(name).await
-    }
-
-    /// Loads a vector of numbers from a file or local storage (for web)
-    /// Handles any type that can be parsed from a string
-    #[allow(dead_code)]
-    pub async fn load_numbers<T>(name: &str) -> Result<Vec<T>, String> 
-    where
-        T: std::str::FromStr,
-    {
-        let strings = Self::load(name).await?;
-        
-        let mut numbers = Vec::with_capacity(strings.len());
-        for s in strings {
-            match s.parse::<T>() {
-                Ok(n) => numbers.push(n),
-                Err(_) => return Err(format!("Failed to parse '{}' as number", s))
-            }
+   
+    #[allow(unused)]
+    pub async fn fetch_table<T: for<'de> Deserialize<'de>>(&self, table: &str) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+        let payload = serde_json::json!({
+            "action": "fetch",
+            "table": table
+        });
+        let resp = self.send_request(&payload).await?;
+        let records = resp["records"].as_array().cloned().unwrap_or_default();
+        let mut result = Vec::new();
+        for record in records {
+            result.push(serde_json::from_value(record)?);
         }
-        
-        Ok(numbers)
+        Ok(result)
     }
-
-    /// Loads an asset file (read-only data)
-    #[allow(dead_code)]
-    pub async fn load_asset(path: &str) -> Result<String, String> {
-        match load_string(path).await {
-            Ok(content) => Ok(content),
-            Err(e) => Err(format!("Failed to load asset '{}': {:?}", path, e))
+    #[allow(unused)]
+    pub async fn fetch_record_by_id<T: for<'de> Deserialize<'de>>(&self, table: &str, id: i64) -> Result<Option<T>, Box<dyn std::error::Error>> {
+        let payload = serde_json::json!({
+            "action": "fetch_by_id",
+            "table": table,
+            "id": id
+        });
+        let resp = self.send_request(&payload).await?;
+        let record = resp.get("record").cloned();
+        match record {
+            Some(val) if !val.is_null() => Ok(Some(serde_json::from_value(val)?)),
+            _ => Ok(None)
         }
     }
-    
+
+
+
+    // All direct SQL and WASM FFI helpers removed; only HTTP/Worker logic remains
 }

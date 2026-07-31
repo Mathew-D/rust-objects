@@ -2,12 +2,7 @@
 Made by: Mathew Dusome
 Jul 31 2026
 Turso (libSQL) database module for Rust
-
-April 2: Dray52 Added fetch by id with examples
-================================
-INITIAL SETUP:
-================================
-1. Add to mod.rs: pub mod database;
+. Add to mod.rs: pub mod database;
 2. Sign up: https://turso.tech
 3. Create DB: turso db create my-db
 4. Get URL: turso db show my-db
@@ -270,6 +265,7 @@ impl DatabaseClient {
         #[allow(unused)]
         async fn send_request(&self, payload: &serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
             let body = payload.to_string();
+            
             #[cfg(not(target_arch = "wasm32"))]
             {
                 let url = &self.worker_url;
@@ -285,16 +281,19 @@ impl DatabaseClient {
                     Err(e) => return Err(e.into()),
                 };
                 let json: serde_json::Value = serde_json::from_str(&text)?;
-                Ok(json)
+                return Ok(json);
             }
+            
             #[cfg(target_arch = "wasm32")]
             {
+                #[link(wasm_import_module = "env")]
                 extern "C" {
                     fn mq_db_query(ptr: *const u8, len: usize, url_ptr: *const u8, url_len: usize);
                     fn mq_db_query_result_len() -> usize;
                     fn mq_db_query_fill_result(ptr: *mut u8);
                     fn mq_db_query_clear_result();
                 }
+                
                 let url_bytes = self.worker_url.as_bytes();
                 let json_bytes = body.as_bytes();
                 // Call JS: mq_db_query(ptr, len, url_ptr, url_len)
@@ -327,7 +326,12 @@ impl DatabaseClient {
                 }
                 let text = String::from_utf8(buf).map_err(|e| format!("UTF-8 error: {}", e))?;
                 let json: serde_json::Value = serde_json::from_str(&text)?;
-                Ok(json)
+                return Ok(json);
+            }
+            
+            #[cfg(not(any(target_arch = "wasm32", not(target_arch = "wasm32"))))]
+            {
+                unreachable!("This should never be reached");
             }
         }
     pub fn new(worker_url: String) -> Self {
