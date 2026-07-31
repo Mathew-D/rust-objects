@@ -1,6 +1,9 @@
-// LocalStorage plugin
+// LocalStorage plugin for miniquad/wasm interop
 // Exposes js_local_storage_set and js_local_storage_get for Rust FFI
 let local_storage_result_buffer = "";
+
+// Global paste buffer for clipboard
+let clipboard_buffer = "";
 
 function js_local_storage_set(key_ptr, key_len, value_ptr, value_len) {
     const mem = wasm_memory.buffer;
@@ -36,9 +39,6 @@ miniquad_add_plugin({
     register_plugin: local_storage_register_plugin
 });
 
-//Clipboard plugin
-let clipboard_buffer = "";
-
 function clipboard_register_plugin(importObject) {
     // ✅ COPY (put this back!)
     importObject.env.mq_copy_to_clipboard = function(ptr, len) {
@@ -50,14 +50,20 @@ function clipboard_register_plugin(importObject) {
 
     // ✅ REQUEST paste (async)
     importObject.env.mq_request_paste = async function() {
-    if (navigator.userAgent.includes("Firefox")) { return }
-
-    try {
-        clipboard_buffer = await navigator.clipboard.readText();
-    } catch {
-        clipboard_buffer = "";
-    }
-};
+        // Disable paste for Firefox due to focus issues
+        if (navigator.userAgent.includes("Firefox")) {
+            clipboard_buffer = "";
+            return;
+        }
+        
+        // Chrome/Chromium: use clipboard API
+        try {
+            clipboard_buffer = await navigator.clipboard.readText();
+        } catch (e) {
+            console.error("Clipboard read error:", e);
+            clipboard_buffer = "";
+        }
+    };
 
     // ✅ LENGTH
     importObject.env.mq_get_paste_len = function() {
@@ -87,30 +93,27 @@ miniquad_add_plugin({
     register_plugin: clipboard_register_plugin
 });
 
-// Database plugin
+// Database plugin for miniquad/wasm interop
 // Exposes mq_db_query for Rust to call via FFI
 
 let db_query_result_buffer = "";
 
-async function mq_db_query(ptr, len, url_ptr, url_len, token_ptr, token_len) {
+async function mq_db_query(ptr, len, url_ptr, url_len) {
     // WASM memory is expected to be available as wasm_memory
     try {
         const mem = wasm_memory.buffer;
         const decoder = new TextDecoder();
         const body = decoder.decode(new Uint8Array(mem, ptr, len));
         const url = decoder.decode(new Uint8Array(mem, url_ptr, url_len));
-        const token = decoder.decode(new Uint8Array(mem, token_ptr, token_len));
 
-        const resp = await fetch(url + "/v2/pipeline", {
+        const resp = await fetch(url, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${token}`,
                 "Content-Type": "application/json"
             },
             body
         });
         db_query_result_buffer = await resp.text();
-    
     } catch (e) {
         db_query_result_buffer = JSON.stringify({ error: "fetch_failed", message: e && e.message ? e.message : String(e) });
     }
