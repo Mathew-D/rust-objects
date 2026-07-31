@@ -1,9 +1,9 @@
 /*
 Made by: Mathew Dusome
-April 26 2025
-To import you need:
-Adds a progress bar component for displaying completion status
+July 31, 2026
+Program Details: Adds a progress bar component for displaying completion status
 
+To import you need:
 In your ui.rs file in the root, add the following to the end of the file
     pub mod progressbar;
     
