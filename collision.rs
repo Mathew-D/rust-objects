@@ -4,15 +4,14 @@ Date: Jun 13, 2026
 Lets us check for collisions with pixels.  One version for web one for native 
 linux and windows
 
-Must add the following to Cargo.toml
+Must add rayon with the following command in the terminal:
+    cargo add rayon@1.7 --optional --target 'cfg(not(target_arch = "wasm32"))'
 
-# Conditionally include Rayon only for native platforms (not Wasm)
-rayon = { version = "1.7", optional = true }
-[features]
-default = ["native"]  # Default feature includes "native"
-native = ["rayon"]    # The "native" feature enables Rayon
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = "1.7"  # Rayon is only included for native builds
+In the Cargo.toml file change the features section to look like this:
+    [features]
+    default = ["native"]  # Default feature includes "native"
+    native = ["dep:rayon"]    # The "native" feature enables Rayon
+
 
 In your utils.rs file add the following to the end of the file:
     pub mod collision;

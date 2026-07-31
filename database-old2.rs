@@ -1,0 +1,638 @@
+/*
+Made by: Mathew Dusome
+April 2 2026 
+Turso (libSQL) database module for Rust
+
+April 2: Dray52 Added fetch by id with examples
+================================
+INITIAL SETUP:
+================================
+1. Add to mod.rs: pub mod database;
+2. Sign up: https://turso.tech
+3. Create DB: turso db create my-db
+4. Get URL: turso db show my-db
+5. Get token: turso db tokens create my-db
+6. Update TURSO_URL and TURSO_AUTH_TOKEN below
+
+7. Add dependencies to Cargo.toml. Add these 2 lines to [dependencies]:
+
+   serde = { version = "1.0", features = ["derive"] }
+   serde_json = "1.0"
+
+   Then add these 2 new sections:
+
+   [target.'cfg(target_arch = "wasm32")'.dependencies]
+   wasm-bindgen = "=0.2.106"
+   wasm-bindgen-futures = "0.4"
+   js-sys = "0.3"
+   web-sys = { version = "0.3", features = [
+       "Window",
+       "Request",
+       "RequestInit",
+       "RequestMode",
+       "Headers",
+       "Response",
+   ] }
+
+   [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+   ureq = { version = "2.9", features = ["json"] }
+8. Add use statement:
+    use crate::modules::database::{create_database_client, DatabaseTable};
+9. Add to mod.rs:
+    pub mod database;
+10. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
+   This will compile to WebAssembly with the wasm32 dependencies above.
+
+================================
+CUSTOMIZE YOUR DATABASE SCHEMA:
+================================
+1. Modify the DatabaseTable struct below
+   - Add/remove fields to match your table columns
+   - Use appropriate Rust types: i32 for INTEGER, String for TEXT, bool for BOOLEAN, f64 for REAL
+   - Keep id: i32 (0 for INSERT means auto-generate, populated with actual ID for SELECT)
+   - Use serde attributes for custom naming if needed
+
+2. Create your table in Turso (via CLI or SQL):
+   
+   Using Turso CLI:
+     turso db shell my-db
+     CREATE TABLE my_table (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       column1 TEXT NOT NULL,
+       column2 INTEGER,
+       ...
+     );
+
+ 
+3. Column type mapping:
+   - INTEGER → i32, i64
+   - TEXT → String
+   - REAL → f64
+   - BOOLEAN → bool
+   - NUMERIC → f64 or String
+
+================================
+USAGE EXAMPLES:
+================================
+
+// NOTE: The table used in these examples is called 'messages'.
+    let client = create_database_client();
+
+
+    // Fetch all records (for display)
+    let mut records: Vec<DatabaseTable> = Vec::new();
+    let fetched_results = client.fetch_table("messages").await;
+    if let Ok(result) = fetched_results {
+        records = result;
+       // To update a ListView with these records:
+        // update_listview(&mut list_view, &records);
+        }
+    } else {
+       println!("Error fetching records from database: {} ",fetched_results.err().unwrap());
+    }
+
+     if let Ok(Some(record)) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("Successfully fetched record from database.");
+      else if let Ok(None) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("No record found with id {}", id);
+      } else if let Err(err) = client.fetch_record_by_id::<DatabaseTable>("message", id).await {
+                println!("Error fetching record from database: {}", err);
+      }
+
+    // Insert a record (from user text input)
+    let new_record = DatabaseTable { id: 0, text: "User entered text".to_string() };
+    let insert_results =  client.insert_record("messages", &new_record).await;
+    if let Ok(id) = insert_results {
+        // Inserted, id contains the new record's id
+    } else {
+        println!("Error inserting records from database: {} ",insert_results.err().unwrap());
+    }
+
+
+    // Update a record by id (Can only do one column at a time with this method)
+    if let Ok(updated_count) = client.update_record_by_id("messages", 5, "text", "New text").await {
+        // updated_count is the number of records updated
+    } else {
+        // Handle error
+    }
+
+    // Update a record by struct (update all non-id fields)
+    let updated_record = DatabaseTable { id: 5, text: "Updated text".to_string() };
+    if let Ok(updated_count) = client.update_record_by_struct("messages", &updated_record).await {
+        // updated_count is the number of records updated
+    } else {
+        // Handle error
+    }
+
+    // Delete a record by id (from user id input)
+    if let Ok(deleted_count) = client.delete_record_by_id("messages", 5).await {
+        // deleted_count is the number of records deleted
+    } else {
+        // Handle error
+    }
+
+    // Custom SQL queries
+    if let Ok(_) = client.execute_sql("SELECT * FROM messages WHERE id > 5").await {
+        // Query executed
+    } else {
+        // Handle error
+    }
+
+  // ---
+    // Displaying records in a ListView:
+    //Where 'list_view' is your ListView instance and 'records' is the Vec<DatabaseTable> fetched from the database.
+    //Change the items.push! line to customize how each record is displayed in the list.
+   
+   fn update_listview(list_view: &mut ListView, messages: &Vec<DatabaseTable>) {
+    list_view.clear();
+    let mut items: Vec<String> = Vec::new();
+    for (i, msg) in messages.iter().enumerate() {
+        items.push(format!("  {}: ID={}, Text={}", i + 1, msg.id, msg.text));
+    }
+    list_view.add_items(&items);
+}
+*/
+
+use serde::{Deserialize, Serialize};
+
+// Helper function for serde to skip serializing id when it's 0
+fn is_zero(num: &i32) -> bool {
+    *num == 0
+}
+// Please replace the libsql:// from the URL with https:
+pub const TURSO_URL: &str = "URL_HERE";
+pub const TURSO_AUTH_TOKEN: &str = "TOKEN_HERE";
+
+// ============================================================================
+// CUSTOMIZE THIS STRUCT FOR YOUR DATABASE SCHEMA
+// ============================================================================
+
+/// Your database record struct - used for both INSERT and SELECT operations
+/// When inserting: set id to 0 (it will be auto-generated by the database)
+/// When fetching: id will be populated with the actual ID
+/// 
+/// Modify this struct to match your table columns:
+/// #[derive(Debug, Deserialize, Serialize, Clone)]
+/// pub struct DatabaseTable {
+///     #[serde(default, skip_serializing_if = "is_zero")]
+///     pub id: i32,
+///     pub email: String,
+///     pub age: i32,
+///     pub active: bool,
+///     pub score: f64,
+/// }
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DatabaseTable {
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub id: i32,
+    pub text: String,
+    // Example: Add more fields like this:
+    // pub email: String,
+    // pub age: i32,
+    // pub active: bool,
+    // pub score: f64,
+}
+
+// ============================================================================
+// CONVENIENCE FUNCTIONS
+// ============================================================================
+
+#[allow(unused)]
+pub fn create_database_client() -> DatabaseClient {
+    DatabaseClient::new(TURSO_URL.to_string(), TURSO_AUTH_TOKEN.to_string())
+}
+
+#[allow(unused)]
+pub fn create_turso_client(url: &str, token: &str) -> DatabaseClient {
+    DatabaseClient::new(url.to_string(), token.to_string())
+}
+
+/// Create a table with custom name and schema
+/// The table name and columns are fully customizable
+/// Update this function if you want to change the table structure
+/// 
+/// Example for different schemas:
+/// ```
+/// // For users table:
+/// CREATE TABLE users (
+///   id INTEGER PRIMARY KEY AUTOINCREMENT,
+///   email TEXT NOT NULL UNIQUE,
+///   age INTEGER,
+///   active BOOLEAN DEFAULT 1,
+///   score REAL
+/// )
+/// 
+/// // For products table:
+/// CREATE TABLE products (
+///   id INTEGER PRIMARY KEY AUTOINCREMENT,
+///   name TEXT NOT NULL,
+///   price REAL,
+///   in_stock BOOLEAN
+/// )
+/// ```
+#[allow(unused)]
+pub async fn create_table_from_struct(table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let client = create_database_client();
+    let sql = format!(
+        "CREATE TABLE IF NOT EXISTS {} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text TEXT NOT NULL
+        )",
+        table_name
+    );
+    client.execute_sql(&sql).await?;
+    Ok(())
+}
+
+pub struct DatabaseClient {
+    base_url: String,
+    auth_token: String,
+}
+
+impl DatabaseClient {
+    pub fn new(base_url: String, auth_token: String) -> Self {
+        Self { base_url, auth_token }
+    }
+
+   #[allow(unused)]
+    pub async fn update_record_by_struct(
+        &self,
+        table: &str,
+        record: &DatabaseTable,
+    ) -> Result<i64, Box<dyn std::error::Error>> {
+        let json = serde_json::to_value(record)?;
+        let obj = json.as_object().ok_or("Record must be an object")?;
+        let mut set_clause = Vec::new();
+        for (k, v) in obj.iter() {
+            if k == "id" {
+                continue;
+            }
+            let value_str = self.value_to_sql(v);
+            set_clause.push(format!("{} = {}", k, value_str));
+        }
+        if set_clause.is_empty() {
+            return Ok(0);
+        }
+        let sql = format!(
+            "UPDATE {} SET {} WHERE id = {}",
+            table,
+            set_clause.join(", "),
+            record.id
+        );
+        self.execute_sql(&sql).await
+    }
+
+   
+    #[allow(unused)]
+    pub async fn fetch_table(&self, table: &str) -> Result<Vec<DatabaseTable>, Box<dyn std::error::Error>> {
+        let sql = format!("SELECT * FROM {} ORDER BY id", table);
+        self.fetch_with_sql::<DatabaseTable>(&sql).await
+    }
+
+    #[allow(unused)]
+    pub async fn fetch_table_custom<T>(&self, table: &str) -> Result<Vec<T>, Box<dyn std::error::Error>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let sql = format!("SELECT * FROM {} ORDER BY id", table);
+        self.fetch_with_sql(&sql).await
+    }
+
+    #[allow(unused)]
+    pub async fn fetch_with_sql<T>(&self, sql: &str) -> Result<Vec<T>, Box<dyn std::error::Error>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let response = self.execute_query(sql).await?;
+        self.parse_query_response(&response)
+    }
+
+    #[allow(unused)]
+    pub async fn insert_record<T>(&self, table: &str, record: &T) -> Result<i64, Box<dyn std::error::Error>>
+    where
+        T: Serialize,
+    {
+        let json = serde_json::to_value(record)?;
+        let obj = json.as_object().ok_or("Record must be an object")?;
+
+        let columns: Vec<&str> = obj.keys().filter(|k| *k != "id").map(|s| s.as_str()).collect();
+
+        let values: Vec<String> = obj.iter().filter(|(k, _)| *k != "id").map(|(_, v)| self.value_to_sql(v)).collect();
+
+        let sql = format!("INSERT INTO {} ({}) VALUES ({})", table, columns.join(", "), values.join(", "));
+
+        let response = self.execute_query(&sql).await?;
+        self.extract_last_insert_id(&response)
+    }
+    #[allow(unused)]
+       pub async fn fetch_record_by_id<T>(&self, table: &str, id: i64) -> Result<Option<T>, Box<dyn std::error::Error>>
+       where
+           T: for<'de> Deserialize<'de>,
+       {
+           // Returns the full row for the given id.
+           // Call this with `DatabaseTable` to access fields like `movie_name`.
+           // limit 1 says send at most 1 row.
+           let sql = format!("SELECT * FROM {} WHERE id = {} LIMIT 1", table, id);
+           let mut results = self.fetch_with_sql(&sql).await?;
+           Ok(results.pop())
+       }
+    #[allow(unused)]
+    pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &str) -> Result<i64, Box<dyn std::error::Error>> {
+        let sql = format!("UPDATE {} SET {} = '{}' WHERE id = {}", table, column, value.replace("'", "''"), id);
+        self.execute_sql(&sql).await
+    }
+
+    #[allow(unused)]
+    pub async fn delete_record_by_id(&self, table: &str, id: i64) -> Result<i64, Box<dyn std::error::Error>> {
+        let sql = format!("DELETE FROM {} WHERE id = {}", table, id);
+        self.execute_sql(&sql).await
+    }
+
+    #[allow(unused)]
+    pub async fn execute_sql(&self, sql: &str) -> Result<i64, Box<dyn std::error::Error>> {
+        let response = self.execute_query(sql).await?;
+        self.extract_rows_affected(&response)
+    }
+
+    /// Create a table with custom SQL
+    #[allow(unused)]
+    pub async fn create_table(&self, sql: &str) -> Result<(), Box<dyn std::error::Error>> {
+        self.execute_sql(sql).await?;
+        Ok(())
+    }
+
+    /// Drop a table if it exists
+    #[allow(unused)]
+    pub async fn drop_table(&self, table: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let sql = format!("DROP TABLE IF EXISTS {}", table);
+        self.execute_sql(&sql).await?;
+        Ok(())
+    }
+
+    /// Get all tables in the database
+    #[allow(unused)]
+    pub async fn list_tables(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let sql = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+        let response = self.execute_query(sql).await?;
+        let value: serde_json::Value = serde_json::from_str(&response)?;
+
+        // Navigate: results[0].response.result
+        let result = value
+            .get("results")
+            .and_then(|r| r.as_array())
+            .and_then(|a| a.get(0))
+            .and_then(|r| r.get("response"))
+            .and_then(|resp| resp.get("result"))
+            .ok_or("Invalid response structure")?;
+
+        let rows = result.get("rows").and_then(|r| r.as_array()).ok_or("No rows in response")?;
+
+        let mut tables = Vec::new();
+        for row in rows {
+            if let Some(row_array) = row.as_array() {
+                if let Some(first_cell) = row_array.get(0) {
+                    if let Some(name) = first_cell.get("value").and_then(|v| v.as_str()) {
+                        tables.push(name.to_string());
+                    }
+                }
+            }
+        }
+
+        Ok(tables)
+    }
+
+    /// Clear all records from a table
+    #[allow(unused)]
+    pub async fn clear_table(&self, table: &str) -> Result<i64, Box<dyn std::error::Error>> {
+        let sql = format!("DELETE FROM {}", table);
+        self.execute_sql(&sql).await
+    }
+
+    async fn execute_query(&self, sql: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let body = serde_json::json!({
+            "requests": [{
+                "type": "execute",
+                "stmt": {
+                    "sql": sql
+                }
+            }]
+        });
+        let body_str = serde_json::to_string(&body)?;
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.execute_query_web(&body_str).await
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.execute_query_native(&body_str).await
+        }
+    }
+
+    fn parse_query_response<T>(&self, response: &str) -> Result<Vec<T>, Box<dyn std::error::Error>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let value: serde_json::Value = serde_json::from_str(response)?;
+
+        // Navigate: results[0].response.result
+        let result = value
+            .get("results")
+            .and_then(|r| r.as_array())
+            .and_then(|a| a.get(0))
+            .and_then(|r| r.get("response"))
+            .and_then(|resp| resp.get("result"))
+            .ok_or("Invalid response structure")?;
+
+        let result_obj = result.as_object().ok_or("Result is not an object")?;
+
+        // Get columns array
+        let columns = match result_obj.get("cols").and_then(|c| c.as_array()) {
+            Some(cols) => cols,
+            None => return Ok(Vec::new()), // No columns means no data
+        };
+
+        let rows = result_obj.get("rows").and_then(|r| r.as_array()).map(|r| r.clone()).unwrap_or_default();
+
+        let mut records = Vec::new();
+
+        for row in rows {
+            let row_array = row.as_array().ok_or("Row is not an array")?;
+            let mut obj = serde_json::Map::new();
+
+            for (i, col_info) in columns.iter().enumerate() {
+                if let Some(col_obj) = col_info.as_object() {
+                    if let Some(col_name) = col_obj.get("name").and_then(|n| n.as_str()) {
+                        if let Some(cell) = row_array.get(i) {
+                            // Cell format: {"type": "...", "value": ...}
+                            if let Some(value) = cell.get("value") {
+                                let json_value = if value.is_null() {
+                                    serde_json::Value::Null
+                                } else if let Some(value_str) = value.as_str() {
+                                    // Get the decltype to determine how to parse the value
+                                    let decltype = col_obj.get("decltype").and_then(|dt| dt.as_str()).unwrap_or("");
+
+                                    // Convert string value to appropriate JSON type based on decltype
+                                    if decltype.to_uppercase().contains("INT") {
+                                        match value_str.parse::<i64>() {
+                                            Ok(i) => serde_json::json!(i),
+                                            Err(_) => serde_json::Value::String(value_str.to_string()),
+                                        }
+                                    } else if decltype.to_uppercase().contains("REAL") || decltype.to_uppercase().contains("FLOAT") {
+                                        match value_str.parse::<f64>() {
+                                            Ok(f) => serde_json::json!(f),
+                                            Err(_) => serde_json::Value::String(value_str.to_string()),
+                                        }
+                                    } else {
+                                        serde_json::Value::String(value_str.to_string())
+                                    }
+                                } else {
+                                    value.clone()
+                                };
+
+                                obj.insert(col_name.to_string(), json_value);
+                            } else {
+                                obj.insert(col_name.to_string(), serde_json::Value::Null);
+                            }
+                        }
+                    }
+                }
+            }
+
+            let record: T = serde_json::from_value(serde_json::Value::Object(obj))?;
+            records.push(record);
+        }
+
+        Ok(records)
+    }
+
+    fn extract_rows_affected(&self, response: &str) -> Result<i64, Box<dyn std::error::Error>> {
+        let value: serde_json::Value = serde_json::from_str(response)?;
+
+        // Navigate: results[0].response.result.affected_row_count
+        let rows_affected = value
+            .get("results")
+            .and_then(|r| r.as_array())
+            .and_then(|a| a.get(0))
+            .and_then(|r| r.get("response"))
+            .and_then(|resp| resp.get("result"))
+            .and_then(|result| {
+                result
+                    .get("affected_row_count")
+                    .or_else(|| result.get("changes"))
+                    .or_else(|| result.get("rows_affected"))
+                    .and_then(|n| n.as_i64())
+            })
+            .unwrap_or(0);
+
+        Ok(rows_affected)
+    }
+
+    fn extract_last_insert_id(&self, response: &str) -> Result<i64, Box<dyn std::error::Error>> {
+        let value: serde_json::Value = serde_json::from_str(response)?;
+
+        // Navigate: results[0].response.result.last_insert_rowid
+        let result = value
+            .get("results")
+            .and_then(|r| r.as_array())
+            .and_then(|a| a.get(0))
+            .and_then(|r| r.get("response"))
+            .and_then(|resp| resp.get("result"));
+
+        if let Some(result_obj) = result {
+            // Try multiple field name variants
+            if let Some(id_str) = result_obj.get("last_insert_rowid").and_then(|n| n.as_str()) {
+                if let Ok(id) = id_str.parse::<i64>() {
+                    return Ok(id);
+                }
+            }
+            if let Some(last_id) = result_obj.get("last_insert_rowid").and_then(|n| n.as_i64()) {
+                return Ok(last_id);
+            }
+            if let Some(last_id) = result_obj.get("last_row_id").and_then(|n| n.as_i64()) {
+                return Ok(last_id);
+            }
+
+            // If neither field exists, try to use affected_row_count
+            if let Some(affected) = result_obj.get("affected_row_count").and_then(|n| n.as_i64()) {
+                if affected > 0 {
+                    return Ok(1); // Insert was successful but ID unavailable, return 1 as placeholder
+                }
+            }
+
+            return Err("Failed to get last insert ID from response".into());
+        }
+
+        Err("Failed to parse response structure for insert ID".into())
+    }
+
+    fn value_to_sql(&self, v: &serde_json::Value) -> String {
+        match v {
+            serde_json::Value::String(s) => format!("'{}'", s.replace("'", "''")),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => if *b { "1" } else { "0" }.to_string(),
+            serde_json::Value::Null => "NULL".to_string(),
+            _ => format!("'{}'", v.to_string().replace("'", "''")),
+        }
+    }
+
+    #[allow(unused)]
+    #[cfg(target_arch = "wasm32")]
+    async fn execute_query_web(&self, json_body: &str) -> Result<String, Box<dyn std::error::Error>> {
+        use wasm_bindgen::JsCast;
+        use wasm_bindgen_futures::JsFuture;
+        use web_sys::{Headers, Request, RequestInit, RequestMode, Response, window};
+
+        let url = format!("{}/v2/pipeline", self.base_url);
+        let opts = RequestInit::new();
+        opts.set_method("POST");
+        opts.set_mode(RequestMode::Cors);
+        opts.set_body(&wasm_bindgen::JsValue::from_str(json_body));
+
+        let headers = Headers::new().map_err(|e| format!("Failed to create headers: {:?}", e))?;
+        headers
+            .append("Authorization", &format!("Bearer {}", self.auth_token))
+            .map_err(|e| format!("Failed to set Authorization: {:?}", e))?;
+        headers
+            .append("Content-Type", "application/json")
+            .map_err(|e| format!("Failed to set Content-Type: {:?}", e))?;
+        opts.set_headers(&headers);
+
+        let req = Request::new_with_str_and_init(&url, &opts).map_err(|e| format!("Failed to build request: {:?}", e))?;
+        let win = window().ok_or("Failed to get window")?;
+        let resp_value = JsFuture::from(win.fetch_with_request(&req))
+            .await
+            .map_err(|e| format!("Fetch failed: {:?}", e))?;
+        let resp: Response = resp_value.dyn_into().map_err(|e| format!("Failed to cast response: {:?}", e))?;
+
+        if !resp.ok() {
+            return Err(format!("HTTP error: {}", resp.status()).into());
+        }
+
+        let text_promise = resp.text().map_err(|e| format!("resp.text() failed: {:?}", e))?;
+
+        let text_value = JsFuture::from(text_promise).await.map_err(|e| format!("Failed to read text: {:?}", e))?;
+        text_value.as_string().ok_or("Failed to convert to string".into())
+    }
+
+    #[allow(unused)]
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn execute_query_native(&self, json_body: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let url = format!("{}/v2/pipeline", self.base_url);
+        let response = ureq::post(&url)
+            .set("Authorization", &format!("Bearer {}", self.auth_token))
+            .set("Content-Type", "application/json")
+            .send_string(json_body);
+
+        match response {
+            Ok(resp) => Ok(resp.into_string()?),
+            Err(ureq::Error::Status(code, response)) => {
+                let error_body = response.into_string().unwrap_or_else(|_| "Could not read error body".to_string());
+                Err(format!("HTTP {} error: {}", code, error_body).into())
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+

@@ -1,6 +1,6 @@
 /*
 Made by: Mathew Dusome
-April 2 2026 
+Jul 31 2026
 Turso (libSQL) database module for Rust
 
 April 2: Dray52 Added fetch by id with examples
@@ -12,36 +12,28 @@ INITIAL SETUP:
 3. Create DB: turso db create my-db
 4. Get URL: turso db show my-db
 5. Get token: turso db tokens create my-db
-6. Update TURSO_URL and TURSO_AUTH_TOKEN below
 
-7. Add dependencies to Cargo.toml. Add these 2 lines to [dependencies]:
+6. Add dependencies to Cargo.toml. Add these 2 lines to [dependencies]:
+    In the termal, run:
+        cargo add serde@1.0 --features derive
+        cargo add serde_json@1.0
+        cargo add ureq@2.9 --features json --target 'cfg(not(target_arch = "wasm32"))'
 
-   serde = { version = "1.0", features = ["derive"] }
-   serde_json = "1.0"
+    Or manually add to Cargo.toml in the [dependencies] section:
+        
+        serde = { version = "1.0", features = ["derive"] }
+        serde_json = "1.0"
+      
+      and add this to the [target.'cfg(not(target_arch = "wasm32"))'.dependencies] section: (create it if it doesn't exist)
+        ureq = { version = "2.9", features = ["json"] }
+   
+7.  Follow the instructions db-directions.md to set up your Cloudflare Worker backend. This is required for the database module to work in both native and WASM builds.
 
-   Then add these 2 new sections:
-
-   [target.'cfg(target_arch = "wasm32")'.dependencies]
-   wasm-bindgen = "=0.2.106"
-   wasm-bindgen-futures = "0.4"
-   js-sys = "0.3"
-   web-sys = { version = "0.3", features = [
-       "Window",
-       "Request",
-       "RequestInit",
-       "RequestMode",
-       "Headers",
-       "Response",
-   ] }
-
-   [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-   ureq = { version = "2.9", features = ["json"] }
 8. Add use statement:
-    use crate::modules::database::{create_database_client, DatabaseTable};
+    use crate::utils::database::{create_database_client, DatabaseTable};
 9. Add to mod.rs:
     pub mod database;
-10. To build for web: Use "Build: Web Output(Advanced)" option in the Dusome's extension.
-   This will compile to WebAssembly with the wasm32 dependencies above.
+
 
 ================================
 CUSTOMIZE YOUR DATABASE SCHEMA:
@@ -78,8 +70,7 @@ USAGE EXAMPLES:
 // NOTE: The table used in these examples is called 'messages'.
     let client = create_database_client();
 
-
-    // Fetch all records (for display)
+// Fetch all records (for display)
     let mut records: Vec<DatabaseTable> = Vec::new();
     let fetched_results = client.fetch_table("messages").await;
     if let Ok(result) = fetched_results {
@@ -99,7 +90,7 @@ USAGE EXAMPLES:
                 println!("Error fetching record from database: {}", err);
       }
 
-    // Insert a record (from user text input)
+// Insert a record (from user text input)
     let new_record = DatabaseTable { id: 0, text: "User entered text".to_string() };
     let insert_results =  client.insert_record("messages", &new_record).await;
     if let Ok(id) = insert_results {
@@ -109,14 +100,14 @@ USAGE EXAMPLES:
     }
 
 
-    // Update a record by id (Can only do one column at a time with this method)
+// Update a record by id (Can only do one column at a time with this method)
     if let Ok(updated_count) = client.update_record_by_id("messages", 5, "text", "New text").await {
         // updated_count is the number of records updated
     } else {
         // Handle error
     }
 
-    // Update a record by struct (update all non-id fields)
+// Update a record by struct (update all non-id fields)
     let updated_record = DatabaseTable { id: 5, text: "Updated text".to_string() };
     if let Ok(updated_count) = client.update_record_by_struct("messages", &updated_record).await {
         // updated_count is the number of records updated
@@ -124,24 +115,17 @@ USAGE EXAMPLES:
         // Handle error
     }
 
-    // Delete a record by id (from user id input)
+// Delete a record by id (from user id input)
     if let Ok(deleted_count) = client.delete_record_by_id("messages", 5).await {
         // deleted_count is the number of records deleted
     } else {
         // Handle error
     }
 
-    // Custom SQL queries
-    if let Ok(_) = client.execute_sql("SELECT * FROM messages WHERE id > 5").await {
-        // Query executed
-    } else {
-        // Handle error
-    }
 
-  // ---
-    // Displaying records in a ListView:
-    //Where 'list_view' is your ListView instance and 'records' is the Vec<DatabaseTable> fetched from the database.
-    //Change the items.push! line to customize how each record is displayed in the list.
+// Displaying records in a ListView:
+//Where 'list_view' is your ListView instance and 'records' is the Vec<DatabaseTable> fetched from the database.
+//Change the items.push! line to customize how each record is displayed in the list.
    
    fn update_listview(list_view: &mut ListView, messages: &Vec<DatabaseTable>) {
     list_view.clear();
@@ -154,14 +138,19 @@ USAGE EXAMPLES:
 */
 
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
+use ureq;
+#[cfg(target_arch = "wasm32")]
+use macroquad::prelude::next_frame;
 
 // Helper function for serde to skip serializing id when it's 0
 fn is_zero(num: &i32) -> bool {
     *num == 0
 }
-// Please replace the libsql:// from the URL with https:
-pub const TURSO_URL: &str = "URL_HERE";
-pub const TURSO_AUTH_TOKEN: &str = "TOKEN_HERE";
+
+// URL of your Cloudflare Worker backend
+pub const WORKER_URL: &str = "https://db-worker.mathew-dusome.workers.dev";
+
 
 // ============================================================================
 // CUSTOMIZE THIS STRUCT FOR YOUR DATABASE SCHEMA
@@ -199,13 +188,9 @@ pub struct DatabaseTable {
 
 #[allow(unused)]
 pub fn create_database_client() -> DatabaseClient {
-    DatabaseClient::new(TURSO_URL.to_string(), TURSO_AUTH_TOKEN.to_string())
+    DatabaseClient::new(WORKER_URL.to_string())
 }
 
-#[allow(unused)]
-pub fn create_turso_client(url: &str, token: &str) -> DatabaseClient {
-    DatabaseClient::new(url.to_string(), token.to_string())
-}
 
 /// Create a table with custom name and schema
 /// The table name and columns are fully customizable
@@ -230,409 +215,157 @@ pub fn create_turso_client(url: &str, token: &str) -> DatabaseClient {
 ///   in_stock BOOLEAN
 /// )
 /// ```
-#[allow(unused)]
-pub async fn create_table_from_struct(table_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = create_database_client();
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS {} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            text TEXT NOT NULL
-        )",
-        table_name
-    );
-    client.execute_sql(&sql).await?;
-    Ok(())
-}
 
 pub struct DatabaseClient {
-    base_url: String,
-    auth_token: String,
+    worker_url: String,
 }
 
 impl DatabaseClient {
-    pub fn new(base_url: String, auth_token: String) -> Self {
-        Self { base_url, auth_token }
+        #[allow(unused)]    
+        pub async fn insert_record<T: Serialize>(&self, table: &str, record: &T) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "insert",
+                "table": table,
+                "record": record
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["id"].as_i64().unwrap_or(0))
+        }
+
+        #[allow(unused)]
+        pub async fn update_record_by_struct<T: Serialize>(&self, table: &str, record: &T) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "update",
+                "table": table,
+                "record": record
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["updated"].as_i64().unwrap_or(0))
+        }
+
+        #[allow(unused)]
+        pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &serde_json::Value) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "update_by_column",
+                "table": table,
+                "id": id,
+                "column": column,
+                "value": value
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["updated"].as_i64().unwrap_or(0))
+        }
+
+        #[allow(unused)]
+        pub async fn delete_record_by_id(&self, table: &str, id: i64) -> Result<i64, Box<dyn std::error::Error>> {
+            let payload = serde_json::json!({
+                "action": "delete",
+                "table": table,
+                "id": id
+            });
+            let resp = self.send_request(&payload).await?;
+            Ok(resp["deleted"].as_i64().unwrap_or(0))
+        }
+        
+        #[allow(unused)]
+        async fn send_request(&self, payload: &serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+            let body = payload.to_string();
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let url = &self.worker_url;
+                let response = ureq::post(url)
+                    .set("Content-Type", "application/json")
+                    .send_string(&body);
+                let text = match response {
+                    Ok(resp) => resp.into_string()?,
+                    Err(ureq::Error::Status(code, resp)) => {
+                        let err_body = resp.into_string().unwrap_or_else(|_| "Could not read error body".to_string());
+                        return Err(format!("HTTP {} error: {}", code, err_body).into());
+                    }
+                    Err(e) => return Err(e.into()),
+                };
+                let json: serde_json::Value = serde_json::from_str(&text)?;
+                Ok(json)
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                extern "C" {
+                    fn mq_db_query(ptr: *const u8, len: usize, url_ptr: *const u8, url_len: usize);
+                    fn mq_db_query_result_len() -> usize;
+                    fn mq_db_query_fill_result(ptr: *mut u8);
+                    fn mq_db_query_clear_result();
+                }
+                let url_bytes = self.worker_url.as_bytes();
+                let json_bytes = body.as_bytes();
+                // Call JS: mq_db_query(ptr, len, url_ptr, url_len)
+                unsafe {
+                    mq_db_query(
+                        json_bytes.as_ptr(),
+                        json_bytes.len(),
+                        url_bytes.as_ptr(),
+                        url_bytes.len(),
+                    );
+                }
+                let mut tries = 0;
+                let max_tries = 100;
+                let mut result_len = 0;
+                while tries < max_tries {
+                    result_len = unsafe { mq_db_query_result_len() };
+                    if result_len > 0 {
+                        break;
+                    }
+                    tries += 1;
+                    next_frame().await;
+                }
+                if result_len == 0 {
+                    return Err("No result from JS db_query (timeout or JS error)".into());
+                }
+                let mut buf = vec![0u8; result_len];
+                unsafe {
+                    mq_db_query_fill_result(buf.as_mut_ptr());
+                    mq_db_query_clear_result();
+                }
+                let text = String::from_utf8(buf).map_err(|e| format!("UTF-8 error: {}", e))?;
+                let json: serde_json::Value = serde_json::from_str(&text)?;
+                Ok(json)
+            }
+        }
+    pub fn new(worker_url: String) -> Self {
+        Self { worker_url }
     }
 
-   #[allow(unused)]
-    pub async fn update_record_by_struct(
-        &self,
-        table: &str,
-        record: &DatabaseTable,
-    ) -> Result<i64, Box<dyn std::error::Error>> {
-        let json = serde_json::to_value(record)?;
-        let obj = json.as_object().ok_or("Record must be an object")?;
-        let mut set_clause = Vec::new();
-        for (k, v) in obj.iter() {
-            if k == "id" {
-                continue;
-            }
-            let value_str = self.value_to_sql(v);
-            set_clause.push(format!("{} = {}", k, value_str));
-        }
-        if set_clause.is_empty() {
-            return Ok(0);
-        }
-        let sql = format!(
-            "UPDATE {} SET {} WHERE id = {}",
-            table,
-            set_clause.join(", "),
-            record.id
-        );
-        self.execute_sql(&sql).await
-    }
 
    
     #[allow(unused)]
-    pub async fn fetch_table(&self, table: &str) -> Result<Vec<DatabaseTable>, Box<dyn std::error::Error>> {
-        let sql = format!("SELECT * FROM {} ORDER BY id", table);
-        self.fetch_with_sql::<DatabaseTable>(&sql).await
-    }
-
-    #[allow(unused)]
-    pub async fn fetch_table_custom<T>(&self, table: &str) -> Result<Vec<T>, Box<dyn std::error::Error>>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        let sql = format!("SELECT * FROM {} ORDER BY id", table);
-        self.fetch_with_sql(&sql).await
-    }
-
-    #[allow(unused)]
-    pub async fn fetch_with_sql<T>(&self, sql: &str) -> Result<Vec<T>, Box<dyn std::error::Error>>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        let response = self.execute_query(sql).await?;
-        self.parse_query_response(&response)
-    }
-
-    #[allow(unused)]
-    pub async fn insert_record<T>(&self, table: &str, record: &T) -> Result<i64, Box<dyn std::error::Error>>
-    where
-        T: Serialize,
-    {
-        let json = serde_json::to_value(record)?;
-        let obj = json.as_object().ok_or("Record must be an object")?;
-
-        let columns: Vec<&str> = obj.keys().filter(|k| *k != "id").map(|s| s.as_str()).collect();
-
-        let values: Vec<String> = obj.iter().filter(|(k, _)| *k != "id").map(|(_, v)| self.value_to_sql(v)).collect();
-
-        let sql = format!("INSERT INTO {} ({}) VALUES ({})", table, columns.join(", "), values.join(", "));
-
-        let response = self.execute_query(&sql).await?;
-        self.extract_last_insert_id(&response)
-    }
-    #[allow(unused)]
-       pub async fn fetch_record_by_id<T>(&self, table: &str, id: i64) -> Result<Option<T>, Box<dyn std::error::Error>>
-       where
-           T: for<'de> Deserialize<'de>,
-       {
-           // Returns the full row for the given id.
-           // Call this with `DatabaseTable` to access fields like `movie_name`.
-           // limit 1 says send at most 1 row.
-           let sql = format!("SELECT * FROM {} WHERE id = {} LIMIT 1", table, id);
-           let mut results = self.fetch_with_sql(&sql).await?;
-           Ok(results.pop())
-       }
-    #[allow(unused)]
-    pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &str) -> Result<i64, Box<dyn std::error::Error>> {
-        let sql = format!("UPDATE {} SET {} = '{}' WHERE id = {}", table, column, value.replace("'", "''"), id);
-        self.execute_sql(&sql).await
-    }
-
-    #[allow(unused)]
-    pub async fn delete_record_by_id(&self, table: &str, id: i64) -> Result<i64, Box<dyn std::error::Error>> {
-        let sql = format!("DELETE FROM {} WHERE id = {}", table, id);
-        self.execute_sql(&sql).await
-    }
-
-    #[allow(unused)]
-    pub async fn execute_sql(&self, sql: &str) -> Result<i64, Box<dyn std::error::Error>> {
-        let response = self.execute_query(sql).await?;
-        self.extract_rows_affected(&response)
-    }
-
-    /// Create a table with custom SQL
-    #[allow(unused)]
-    pub async fn create_table(&self, sql: &str) -> Result<(), Box<dyn std::error::Error>> {
-        self.execute_sql(sql).await?;
-        Ok(())
-    }
-
-    /// Drop a table if it exists
-    #[allow(unused)]
-    pub async fn drop_table(&self, table: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let sql = format!("DROP TABLE IF EXISTS {}", table);
-        self.execute_sql(&sql).await?;
-        Ok(())
-    }
-
-    /// Get all tables in the database
-    #[allow(unused)]
-    pub async fn list_tables(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let sql = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
-        let response = self.execute_query(sql).await?;
-        let value: serde_json::Value = serde_json::from_str(&response)?;
-
-        // Navigate: results[0].response.result
-        let result = value
-            .get("results")
-            .and_then(|r| r.as_array())
-            .and_then(|a| a.get(0))
-            .and_then(|r| r.get("response"))
-            .and_then(|resp| resp.get("result"))
-            .ok_or("Invalid response structure")?;
-
-        let rows = result.get("rows").and_then(|r| r.as_array()).ok_or("No rows in response")?;
-
-        let mut tables = Vec::new();
-        for row in rows {
-            if let Some(row_array) = row.as_array() {
-                if let Some(first_cell) = row_array.get(0) {
-                    if let Some(name) = first_cell.get("value").and_then(|v| v.as_str()) {
-                        tables.push(name.to_string());
-                    }
-                }
-            }
-        }
-
-        Ok(tables)
-    }
-
-    /// Clear all records from a table
-    #[allow(unused)]
-    pub async fn clear_table(&self, table: &str) -> Result<i64, Box<dyn std::error::Error>> {
-        let sql = format!("DELETE FROM {}", table);
-        self.execute_sql(&sql).await
-    }
-
-    async fn execute_query(&self, sql: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let body = serde_json::json!({
-            "requests": [{
-                "type": "execute",
-                "stmt": {
-                    "sql": sql
-                }
-            }]
+    pub async fn fetch_table<T: for<'de> Deserialize<'de>>(&self, table: &str) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+        let payload = serde_json::json!({
+            "action": "fetch",
+            "table": table
         });
-        let body_str = serde_json::to_string(&body)?;
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.execute_query_web(&body_str).await
+        let resp = self.send_request(&payload).await?;
+        let records = resp["records"].as_array().cloned().unwrap_or_default();
+        let mut result = Vec::new();
+        for record in records {
+            result.push(serde_json::from_value(record)?);
         }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.execute_query_native(&body_str).await
-        }
+        Ok(result)
     }
-
-    fn parse_query_response<T>(&self, response: &str) -> Result<Vec<T>, Box<dyn std::error::Error>>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        let value: serde_json::Value = serde_json::from_str(response)?;
-
-        // Navigate: results[0].response.result
-        let result = value
-            .get("results")
-            .and_then(|r| r.as_array())
-            .and_then(|a| a.get(0))
-            .and_then(|r| r.get("response"))
-            .and_then(|resp| resp.get("result"))
-            .ok_or("Invalid response structure")?;
-
-        let result_obj = result.as_object().ok_or("Result is not an object")?;
-
-        // Get columns array
-        let columns = match result_obj.get("cols").and_then(|c| c.as_array()) {
-            Some(cols) => cols,
-            None => return Ok(Vec::new()), // No columns means no data
-        };
-
-        let rows = result_obj.get("rows").and_then(|r| r.as_array()).map(|r| r.clone()).unwrap_or_default();
-
-        let mut records = Vec::new();
-
-        for row in rows {
-            let row_array = row.as_array().ok_or("Row is not an array")?;
-            let mut obj = serde_json::Map::new();
-
-            for (i, col_info) in columns.iter().enumerate() {
-                if let Some(col_obj) = col_info.as_object() {
-                    if let Some(col_name) = col_obj.get("name").and_then(|n| n.as_str()) {
-                        if let Some(cell) = row_array.get(i) {
-                            // Cell format: {"type": "...", "value": ...}
-                            if let Some(value) = cell.get("value") {
-                                let json_value = if value.is_null() {
-                                    serde_json::Value::Null
-                                } else if let Some(value_str) = value.as_str() {
-                                    // Get the decltype to determine how to parse the value
-                                    let decltype = col_obj.get("decltype").and_then(|dt| dt.as_str()).unwrap_or("");
-
-                                    // Convert string value to appropriate JSON type based on decltype
-                                    if decltype.to_uppercase().contains("INT") {
-                                        match value_str.parse::<i64>() {
-                                            Ok(i) => serde_json::json!(i),
-                                            Err(_) => serde_json::Value::String(value_str.to_string()),
-                                        }
-                                    } else if decltype.to_uppercase().contains("REAL") || decltype.to_uppercase().contains("FLOAT") {
-                                        match value_str.parse::<f64>() {
-                                            Ok(f) => serde_json::json!(f),
-                                            Err(_) => serde_json::Value::String(value_str.to_string()),
-                                        }
-                                    } else {
-                                        serde_json::Value::String(value_str.to_string())
-                                    }
-                                } else {
-                                    value.clone()
-                                };
-
-                                obj.insert(col_name.to_string(), json_value);
-                            } else {
-                                obj.insert(col_name.to_string(), serde_json::Value::Null);
-                            }
-                        }
-                    }
-                }
-            }
-
-            let record: T = serde_json::from_value(serde_json::Value::Object(obj))?;
-            records.push(record);
-        }
-
-        Ok(records)
-    }
-
-    fn extract_rows_affected(&self, response: &str) -> Result<i64, Box<dyn std::error::Error>> {
-        let value: serde_json::Value = serde_json::from_str(response)?;
-
-        // Navigate: results[0].response.result.affected_row_count
-        let rows_affected = value
-            .get("results")
-            .and_then(|r| r.as_array())
-            .and_then(|a| a.get(0))
-            .and_then(|r| r.get("response"))
-            .and_then(|resp| resp.get("result"))
-            .and_then(|result| {
-                result
-                    .get("affected_row_count")
-                    .or_else(|| result.get("changes"))
-                    .or_else(|| result.get("rows_affected"))
-                    .and_then(|n| n.as_i64())
-            })
-            .unwrap_or(0);
-
-        Ok(rows_affected)
-    }
-
-    fn extract_last_insert_id(&self, response: &str) -> Result<i64, Box<dyn std::error::Error>> {
-        let value: serde_json::Value = serde_json::from_str(response)?;
-
-        // Navigate: results[0].response.result.last_insert_rowid
-        let result = value
-            .get("results")
-            .and_then(|r| r.as_array())
-            .and_then(|a| a.get(0))
-            .and_then(|r| r.get("response"))
-            .and_then(|resp| resp.get("result"));
-
-        if let Some(result_obj) = result {
-            // Try multiple field name variants
-            if let Some(id_str) = result_obj.get("last_insert_rowid").and_then(|n| n.as_str()) {
-                if let Ok(id) = id_str.parse::<i64>() {
-                    return Ok(id);
-                }
-            }
-            if let Some(last_id) = result_obj.get("last_insert_rowid").and_then(|n| n.as_i64()) {
-                return Ok(last_id);
-            }
-            if let Some(last_id) = result_obj.get("last_row_id").and_then(|n| n.as_i64()) {
-                return Ok(last_id);
-            }
-
-            // If neither field exists, try to use affected_row_count
-            if let Some(affected) = result_obj.get("affected_row_count").and_then(|n| n.as_i64()) {
-                if affected > 0 {
-                    return Ok(1); // Insert was successful but ID unavailable, return 1 as placeholder
-                }
-            }
-
-            return Err("Failed to get last insert ID from response".into());
-        }
-
-        Err("Failed to parse response structure for insert ID".into())
-    }
-
-    fn value_to_sql(&self, v: &serde_json::Value) -> String {
-        match v {
-            serde_json::Value::String(s) => format!("'{}'", s.replace("'", "''")),
-            serde_json::Value::Number(n) => n.to_string(),
-            serde_json::Value::Bool(b) => if *b { "1" } else { "0" }.to_string(),
-            serde_json::Value::Null => "NULL".to_string(),
-            _ => format!("'{}'", v.to_string().replace("'", "''")),
-        }
-    }
-
     #[allow(unused)]
-    #[cfg(target_arch = "wasm32")]
-    async fn execute_query_web(&self, json_body: &str) -> Result<String, Box<dyn std::error::Error>> {
-        use wasm_bindgen::JsCast;
-        use wasm_bindgen_futures::JsFuture;
-        use web_sys::{Headers, Request, RequestInit, RequestMode, Response, window};
-
-        let url = format!("{}/v2/pipeline", self.base_url);
-        let opts = RequestInit::new();
-        opts.set_method("POST");
-        opts.set_mode(RequestMode::Cors);
-        opts.set_body(&wasm_bindgen::JsValue::from_str(json_body));
-
-        let headers = Headers::new().map_err(|e| format!("Failed to create headers: {:?}", e))?;
-        headers
-            .append("Authorization", &format!("Bearer {}", self.auth_token))
-            .map_err(|e| format!("Failed to set Authorization: {:?}", e))?;
-        headers
-            .append("Content-Type", "application/json")
-            .map_err(|e| format!("Failed to set Content-Type: {:?}", e))?;
-        opts.set_headers(&headers);
-
-        let req = Request::new_with_str_and_init(&url, &opts).map_err(|e| format!("Failed to build request: {:?}", e))?;
-        let win = window().ok_or("Failed to get window")?;
-        let resp_value = JsFuture::from(win.fetch_with_request(&req))
-            .await
-            .map_err(|e| format!("Fetch failed: {:?}", e))?;
-        let resp: Response = resp_value.dyn_into().map_err(|e| format!("Failed to cast response: {:?}", e))?;
-
-        if !resp.ok() {
-            return Err(format!("HTTP error: {}", resp.status()).into());
-        }
-
-        let text_promise = resp.text().map_err(|e| format!("resp.text() failed: {:?}", e))?;
-
-        let text_value = JsFuture::from(text_promise).await.map_err(|e| format!("Failed to read text: {:?}", e))?;
-        text_value.as_string().ok_or("Failed to convert to string".into())
-    }
-
-    #[allow(unused)]
-    #[cfg(not(target_arch = "wasm32"))]
-    async fn execute_query_native(&self, json_body: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let url = format!("{}/v2/pipeline", self.base_url);
-        let response = ureq::post(&url)
-            .set("Authorization", &format!("Bearer {}", self.auth_token))
-            .set("Content-Type", "application/json")
-            .send_string(json_body);
-
-        match response {
-            Ok(resp) => Ok(resp.into_string()?),
-            Err(ureq::Error::Status(code, response)) => {
-                let error_body = response.into_string().unwrap_or_else(|_| "Could not read error body".to_string());
-                Err(format!("HTTP {} error: {}", code, error_body).into())
-            }
-            Err(e) => Err(e.into()),
+    pub async fn fetch_record_by_id<T: for<'de> Deserialize<'de>>(&self, table: &str, id: i64) -> Result<Option<T>, Box<dyn std::error::Error>> {
+        let payload = serde_json::json!({
+            "action": "fetch_by_id",
+            "table": table,
+            "id": id
+        });
+        let resp = self.send_request(&payload).await?;
+        let record = resp.get("record").cloned();
+        match record {
+            Some(val) if !val.is_null() => Ok(Some(serde_json::from_value(val)?)),
+            _ => Ok(None)
         }
     }
+
+
+
+    // All direct SQL and WASM FFI helpers removed; only HTTP/Worker logic remains
 }
-

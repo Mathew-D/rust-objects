@@ -1,9 +1,19 @@
 /*
 Made by: Mathew Dusome
-Jul 31 2026
-
+April 30 2025
+Updated: December 17 2025
 To import you need:
 Adds TextFile functionality for cross-platform file operations
+
+For web support (WebAssembly) only:
+    add into Cargo.toml the following:
+        [target.'cfg(target_arch = "wasm32")'.dependencies]
+        gloo-storage = "0.3"
+        wasm-bindgen = "=0.2.106"
+
+
+        
+Used for Everything:
 
     In your mod.rs file located in the modules folder add the following to the end of the file
         pub mod textfiles;
@@ -78,15 +88,9 @@ Platform notes:
 
 use macroquad::prelude::*;
 
-// Only use extern "C" for localStorage in WASM
+// Only import storage helpers when targeting WebAssembly
 #[cfg(target_arch = "wasm32")]
-extern "C" {
-    // Save a string to localStorage: js_local_storage_set(key_ptr, key_len, value_ptr, value_len)
-    fn js_local_storage_set(key_ptr: *const u8, key_len: usize, value_ptr: *const u8, value_len: usize);
-    // Get a string from localStorage: returns length, fills buffer with value if found
-    // Returns length of value, or 0 if not found
-    fn js_local_storage_get(key_ptr: *const u8, key_len: usize, out_ptr: *mut u8, out_len: usize) -> usize;
-}
+use gloo_storage::{errors::StorageError, LocalStorage, Storage};
 
 /// TextFile is a utility module for reading and writing text files
 /// that works across all platforms, including web.
@@ -99,16 +103,14 @@ impl TextFile {
         
         #[cfg(target_arch = "wasm32")]
         {
-            // Call JS FFI to save to localStorage
-            let key_bytes = name.as_bytes();
-            let value_bytes = joined.as_bytes();
-            unsafe {
-                js_local_storage_set(
-                    key_bytes.as_ptr(), key_bytes.len(),
-                    value_bytes.as_ptr(), value_bytes.len()
-                );
-            }
-            Ok(())
+            // debug!("Web: saving data to key '{}': {}", name, &joined);
+            LocalStorage::set(name, &joined)
+                .map(|_| { /* debug!("Web: saved key '{}'", name) */ })
+                .map_err(|e| {
+                    let error = format!("Failed to save to storage key '{}': {:?}", name, e);
+                    error!("Web: {}", error);
+                    error
+                })
         }
         
         #[cfg(not(target_arch = "wasm32"))]
@@ -125,21 +127,22 @@ impl TextFile {
     pub async fn load(name: &str) -> Result<Vec<String>, String> {
         #[cfg(target_arch = "wasm32")]
         {
-            // Call JS FFI to load from localStorage
-            let key_bytes = name.as_bytes();
-            // Allocate a buffer for the value (max 16KB)
-            let mut buf = vec![0u8; 16 * 1024];
-            let len = unsafe {
-                js_local_storage_get(
-                    key_bytes.as_ptr(), key_bytes.len(),
-                    buf.as_mut_ptr(), buf.len()
-                )
-            };
-            if len == 0 {
-                return Ok(Vec::new());
+            // debug!("Web: loading data from key '{}'", name);
+            match LocalStorage::get::<String>(name) {
+                Ok(content) => {
+                    // debug!("Web: loaded data from key '{}': {}", name, content);
+                    Ok(content.lines().map(|s| s.to_string()).collect())
+                }
+                Err(StorageError::KeyNotFound(_)) => {
+                    // debug!("Web: No data found for key '{}'", name);
+                    Ok(Vec::new())
+                }
+                Err(e) => {
+                    let error = format!("Failed to load from storage key '{}': {:?}", name, e);
+                    error!("Web: {}", error);
+                    Err(error)
+                }
             }
-            let content = String::from_utf8_lossy(&buf[..len]).to_string();
-            Ok(content.lines().map(|s| s.to_string()).collect::<Vec<String>>())
         }
         
         #[cfg(not(target_arch = "wasm32"))]
