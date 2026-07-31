@@ -101,6 +101,7 @@ use macroquad::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 #[allow(dead_code)]
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     pub fn mq_request_paste();
     pub fn mq_get_paste_len() -> usize;
@@ -109,40 +110,22 @@ unsafe extern "C" {
     pub fn mq_copy_to_clipboard(ptr: *const u8, len: usize);
 }
 
-#[cfg(target_arch = "wasm32")]
-mod wasm_clipboard_stubs {
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn mq_get_paste_len() -> usize {
-        0
-    }
 
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn mq_fill_paste_buffer(_ptr: *mut u8) {
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn mq_clear_paste() {
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn mq_request_paste() {
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn mq_copy_to_clipboard(_ptr: *const u8, _len: usize) {
-    }
-}
 
 pub fn copy_to_clipboard(text: String) {
     // =========================
     // 🌐 WEB (using JavaScript clipboard API)
-    // =========================)
+    // =========================
     #[cfg(target_arch = "wasm32")]
     {
+        let text_bytes = text.as_bytes();
+        unsafe {
+            mq_copy_to_clipboard(text_bytes.as_ptr(), text_bytes.len());
+        }
         return;
     }
     // =========================
-    // 🐧 Everythging else
+    // 🐧 Everything else
     // =========================
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -155,14 +138,19 @@ pub fn copy_to_clipboard(text: String) {
         return;
     }
 }
-
+#[allow(unused)]
 pub fn paste_from_clipboard() -> String {
     // =========================
-    // 🌐 WEB (using JavaScript clipboard API
-    // =========================)
+    // 🌐 WEB (using JavaScript clipboard API)
+    // =========================
     #[cfg(target_arch = "wasm32")]
     {
-      
+        // Request paste from JavaScript (async)
+        // JavaScript handles browser-specific logic (disabled for Firefox)
+        unsafe {
+            mq_request_paste();
+        }
+        // Return empty - actual content comes via async polling
         return String::new();
     }
 
@@ -217,6 +205,7 @@ pub struct TextInput {
     allowed_chars: Option<String>,   // Optional whitelist of allowed typed characters
     selection_anchor: Option<usize>, // Selection anchor byte index for range selection
     is_dragging_selection: bool,     // Tracks active mouse drag selection
+    drag_start_position: Option<(f32, f32)>, // Track where drag started to distinguish click from drag
 }
 
 impl TextInput {
@@ -469,6 +458,7 @@ impl TextInput {
             allowed_chars: None,
             selection_anchor: None,
             is_dragging_selection: false,
+            drag_start_position: None,
         }
     }
 
@@ -842,8 +832,9 @@ impl TextInput {
                 let new_cursor = self.index_from_local_point(mx - text_x, my - text_y);
                 self.cursor_index = new_cursor;
                 self.ensure_indices_validity();
-                self.selection_anchor = Some(self.cursor_index);
+                self.clear_selection();
                 self.is_dragging_selection = true;
+                self.drag_start_position = Some((mx, my));
                 self.cursor_visible = true;
                 self.cursor_timer = 0.0;
             } else {
@@ -856,6 +847,15 @@ impl TextInput {
             let (mx, my) = mouse_position();
             let text_x = self.x + 5.0;
             let text_y = self.y + 5.0;
+            
+            // Only start selection if we've actually dragged
+            if let Some((start_x, start_y)) = self.drag_start_position {
+                let drag_distance = ((mx - start_x).powi(2) + (my - start_y).powi(2)).sqrt();
+                if drag_distance > 3.0 && self.selection_anchor.is_none() {
+                    self.selection_anchor = Some(self.cursor_index);
+                }
+            }
+            
             self.cursor_index = self.index_from_local_point(mx - text_x, my - text_y);
             self.ensure_indices_validity();
             self.cursor_visible = true;
@@ -864,6 +864,7 @@ impl TextInput {
 
         if is_mouse_button_released(MouseButton::Left) {
             self.is_dragging_selection = false;
+            self.drag_start_position = None;
         }
 
         if self.active {
@@ -905,8 +906,8 @@ impl TextInput {
                 } else if is_key_pressed(KeyCode::V) {
                     #[cfg(target_arch = "wasm32")]
                     {
-                        let _clipboard_text = paste_from_clipboard();
                         self.paste_requested = true;
+                        paste_from_clipboard(); // Request async paste
                         consumed_shortcut = true;
                     }
                     #[cfg(not(target_arch = "wasm32"))]
