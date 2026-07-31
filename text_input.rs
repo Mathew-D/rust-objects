@@ -100,11 +100,37 @@ use crate::utils::scale::mouse_position_world as mouse_position;
 use macroquad::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
+#[allow(dead_code)]
 unsafe extern "C" {
     pub fn mq_request_paste();
     pub fn mq_get_paste_len() -> usize;
     pub fn mq_fill_paste_buffer(ptr: *mut u8);
     pub fn mq_clear_paste();
+    pub fn mq_copy_to_clipboard(ptr: *const u8, len: usize);
+}
+
+#[cfg(target_arch = "wasm32")]
+mod wasm_clipboard_stubs {
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn mq_get_paste_len() -> usize {
+        0
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn mq_fill_paste_buffer(_ptr: *mut u8) {
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn mq_clear_paste() {
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn mq_request_paste() {
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn mq_copy_to_clipboard(_ptr: *const u8, _len: usize) {
+    }
 }
 
 pub fn copy_to_clipboard(text: String) {
@@ -113,7 +139,6 @@ pub fn copy_to_clipboard(text: String) {
     // =========================)
     #[cfg(target_arch = "wasm32")]
     {
-    
         return;
     }
     // =========================
@@ -125,8 +150,7 @@ pub fn copy_to_clipboard(text: String) {
 
         let clipboard = Clipboard::new();
         if let Ok(mut clipboard) = clipboard {
-            let the_string = text;
-            clipboard.set_text(the_string).unwrap();
+            clipboard.set_text(text).unwrap();
         }
         return;
     }
