@@ -6,6 +6,8 @@ Program Details: Central texture manager for preloading and sharing textures wit
 To use this:
 1. In your utils.rs file add the following to the end of the file:
     pub mod preload_image;
+In Cargo.toml add the following under dependencies:
+    image = "0.25.10"
 
 2. Add the following use commands:
     use crate::utils::preload_image::TextureManager;
