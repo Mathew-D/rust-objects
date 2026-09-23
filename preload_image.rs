@@ -38,7 +38,7 @@ In Cargo.toml add the following under dependencies:
        // Use default values for other options
        ..Default::default()
    };
-   tm.preload_with_loading_screen(&all_assets, Some(loading_options)).await;
+   tm.preload_with_loading_screen(&["assets/image1.png"], None, None).await;
 
    // Option 3: Preload with loading screen and load both PNGs and GIFs
    // The assets list can include both .png and .gif files - they'll be handled automatically
