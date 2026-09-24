@@ -16,7 +16,7 @@ Then in side the loop I would use:
 Note: When using with the scale module, make sure to call draw_grid AFTER use_virtual_resolution
 */
 use macroquad::prelude::*;
-
+#[allow(dead_code)]
 pub fn draw_grid(grid_size: f32, color: Color) {
     #[cfg(feature = "scale")]
     {
@@ -32,6 +32,7 @@ pub fn draw_grid(grid_size: f32, color: Color) {
 }
 
 // Standard grid drawing function that uses raw screen dimensions
+#[allow(dead_code)]
 fn draw_grid_standard(grid_size: f32, color: Color) {
     let screen_width = screen_width();
     let screen_height = screen_height();
@@ -51,6 +52,7 @@ fn draw_grid_standard(grid_size: f32, color: Color) {
 
 // Scale-aware grid drawing function that respects virtual resolution
 #[cfg(feature = "scale")]
+#[allow(dead_code)]
 fn draw_grid_with_scale(grid_size: f32, color: Color) {
     // When using virtual resolution, we draw grid based on the virtual dimensions
     // Get virtual dimensions from scale module
