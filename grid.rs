@@ -56,7 +56,7 @@ fn draw_grid_standard(grid_size: f32, color: Color) {
 fn draw_grid_with_scale(grid_size: f32, color: Color) {
     // When using virtual resolution, we draw grid based on the virtual dimensions
     // Get virtual dimensions from scale module
-    if let Ok(resolution) = crate::modules::scale::VIRTUAL_RESOLUTION.try_with(|res| *res.borrow()) {
+    if let Ok(resolution) = crate::utils::scale::VIRTUAL_RESOLUTION.try_with(|res| *res.borrow()) {
         let (virtual_width, virtual_height) = resolution;
         
         // Draw vertical lines and labels covering the entire virtual space
