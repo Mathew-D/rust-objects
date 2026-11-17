@@ -244,18 +244,31 @@ function safe_identifier(name) {
 
 // 🔧 Convert JS values to Turso format
 function wrap_param(val) {
-  if (val === null || val === undefined) return { type: 'null', value: null };
+  if (val === null || val === undefined) {
+    return { type: 'null', value: null };
+  }
 
   if (typeof val === 'number') {
-    if (Number.isInteger(val)) return { type: 'integer', value: String(val) };
-    return { type: 'real', value: String(val) };
+    if (!Number.isFinite(val)) {
+      return { type: 'null', value: null };
+    }
+
+    if (Number.isInteger(val)) {
+      return { type: 'integer', value: String(val) };
+    }
+
+    return { type: 'float', value: val };
   }
 
   if (typeof val === 'boolean') {
     return { type: 'integer', value: val ? '1' : '0' };
   }
 
-  return { type: 'text', value: String(val) };
+  if (typeof val === 'string') {
+    return { type: 'text', value: val };
+  }
+
+  return { type: 'text', value: JSON.stringify(val) };
 }
 
 
