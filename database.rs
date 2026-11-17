@@ -239,7 +239,7 @@ impl DatabaseClient {
         }
 
         #[allow(unused)]
-        pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &str::Value) -> Result<i64, Box<dyn std::error::Error>> {
+        pub async fn update_record_by_id(&self, table: &str, id: i64, column: &str, value: &str) -> Result<i64, Box<dyn std::error::Error>> {
             let payload = serde_json::json!({
                 "action": "update_by_column",
                 "table": table,
